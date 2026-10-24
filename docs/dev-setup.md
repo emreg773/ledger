@@ -1,40 +1,85 @@
-# Dev setup (shared Convex deployment)
+# Dev setup
 
-Both tracks use one shared Convex **cloud dev deployment**, so actions, cases and events written by one track are visible to the other.
+Ledger is one Convex project, `ledger` (team `emreg`). Convex gives every project **one shared production deployment and one dev deployment per team member**. Each deployment is a separate backend with its own database, files and environment variables.
 
-**Deployment:** `dev:fast-fish-37` (team `emreg`, project `ledger`), URL https://fast-fish-37.convex.cloud
+| | Deployment | Used by |
+|---|---|---|
+| **Production** (shared) | `prod:majestic-wolverine-921` | Vercel. Every merge to `main` runs `npx convex deploy` |
+| **Emre's dev** | `dev:fast-fish-37` (https://fast-fish-37.convex.cloud) | Emre's `npx convex dev` and `npm run dev` |
+| **Mert's dev** | created the first time Mert runs `npx convex dev` | Mert's `npx convex dev` and `npm run dev` |
 
-## First-time link (done once, by Track A)
+Your dev deployment only runs **your** working tree, so the two of you never overwrite each other's functions. Your data, uploads and test accounts are separate too. Code meets in `main`, and from there in production.
+
+`main` is production once Vercel is connected. Test on your own dev deployment before merging.
+
+## Environment variables
+
+Set them with `npx convex env set NAME value`, which writes to your own dev deployment. For production, use `npx convex env set --prod NAME value`. You can also set them in the dashboard, under the deployment → Settings → Environment Variables. They're stored on the deployment at Convex, never in the repo or `.env.local`.
+
+Every team member can see and change these values in the dashboard.
+
+| Name | Each dev | Prod | Notes |
+|---|---|---|---|
+| `ANTHROPIC_API_KEY` | ✓ | ✓ | Set a monthly spend limit on the key in the Anthropic console |
+| `NESSIE_MODE` | `mock` or `live` | `live` | If Nessie breaks: `mock` (owners then need "Start over with demo data") |
+| `NESSIE_API_KEY` | live only | ✓ | |
+| `IGNORE_SAMPLE_WATERMARKS` | optional | `true` | Judges upload our SAMPLE fixtures |
+| `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET` | ✓ | ✓ | One Google OAuth client for every deployment; each deployment needs its redirect URI (below) |
+| `SITE_URL` | `http://localhost:3000` | the Vercel URL | Where Google sign-in returns to |
+| `JWT_PRIVATE_KEY`, `JWKS` | ✓ | ✓ | Set by `npx @convex-dev/auth` (add `--prod` for production). Different on each deployment |
+| `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` | ✓ | ✓ | **The same pair everywhere.** The public key also goes to Vercel as `NEXT_PUBLIC_VAPID_PUBLIC_KEY` |
+| `VAPID_SUBJECT` | optional | recommended | `mailto:team@…`. Falls back to `SITE_URL` (https) or the repo URL |
+| `LEDGER_DAILY_RUN_LIMIT` | optional | optional | Global cap on agent runs per day (default 600). `0` stops all runs |
+
+**Shortcut: project defaults.** In the dashboard, under Project settings → Environment Variables, values set as *defaults* are copied into every **new** deployment of the project. Set the ones shared by every dev deployment there: `ANTHROPIC_API_KEY`, `NESSIE_MODE`, `NESSIE_API_KEY`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET` and the two `VAPID_` keys. A teammate's new dev deployment then starts with them. A deployment that already exists isn't changed, so set its values by hand.
+
+## Google sign-in
+
+1. In Google Cloud console, open APIs & Services → Credentials, and create an OAuth client of type **Web application**.
+2. Add one **authorized redirect URI per deployment**, in the form `https://<deployment>.convex.site/api/auth/callback/google`:
+   - `https://fast-fish-37.convex.site/api/auth/callback/google` (Emre's dev)
+   - `https://majestic-wolverine-921.convex.site/api/auth/callback/google` (production)
+   - `https://<mert's deployment>.convex.site/api/auth/callback/google` (Mert's dev, once it exists)
+3. Set `AUTH_GOOGLE_ID` and `AUTH_GOOGLE_SECRET` on every deployment, or as project defaults.
+4. On the **OAuth consent screen**, publish the app ("In production"). In "Testing", only listed test users can sign in. The basic scopes (openid, email, profile) don't need Google's verification.
+
+Every new deployment needs its redirect URI added to the same client. Without it, Google refuses the sign-in with `redirect_uri_mismatch`.
+
+## Setting up your dev deployment (each developer, once)
 
 ```bash
-npx convex login                 # opens a browser; log in with the team account
-npx convex dev --configure=new   # create project "ledger" in the team; choose a cloud dev deployment
-                                 # answer No to "link your existing deployment" and to "Set up Convex AI files"
-npx convex env set ANTHROPIC_API_KEY sk-ant-...
-npx convex env set NESSIE_MODE mock          # or "live" with NESSIE_API_KEY set
-npm run reset                    # María, her thread, and her (mock) bank data
+npx convex login                      # your own Convex account (you must be on team emreg)
+npx convex dev --configure=existing   # pick team emreg, project "ledger": creates YOUR dev deployment
+                                      # answer No to "Set up Convex AI files"
 ```
 
-Then invite the other developer to the Convex team (dashboard, Team settings, Members).
-
-## Joining (Track B)
+`npx convex dev` writes your deployment name and URL into `.env.local`; it isn't committed. Keep it running. Then, in a second terminal:
 
 ```bash
-npx convex login
-npx convex dev --configure=existing   # pick team, project "ledger", then the shared dev deployment
-npm run dev                           # http://localhost:3000
+npx @convex-dev/auth --web-server-url http://localhost:3000   # JWT keys and SITE_URL on your deployment
+npx convex env list                                           # check what's set (names only)
 ```
 
-`npx convex dev` writes `CONVEX_DEPLOYMENT` and `NEXT_PUBLIC_CONVEX_URL` into `.env.local`. Secrets (`ANTHROPIC_API_KEY`, `NESSIE_API_KEY`) live in the deployment env, not in `.env.local`.
+Then:
+1. Set any variable from the table that's missing on your deployment (`npx convex env set NAME value`). Ask Emre for the VAPID private key; the pair must match everywhere.
+2. Ask Emre to add your redirect URI to the Google client (the deployment name is in `.env.local`).
+3. Run `npm run dev`, open http://localhost:3000 and sign in with Google.
 
-**Careful:** on a shared deployment, `npx convex dev` pushes *your* working tree. Keep `main` merged into your branch before running it, or you'll overwrite the other track's functions.
+## Production (once, by Emre)
+
+```bash
+npx convex env set --prod NAME value      # every variable in the Prod column
+npx @convex-dev/auth --prod --web-server-url https://<vercel-url>
+```
+
+Deploy key for Vercel: dashboard → production → Settings → Deploy keys. It lets Vercel deploy to production without a login, so treat it like a password.
 
 ## Common commands
 
 ```bash
-npm run reset                    # wipe María's thread, documents, cases, actions, tasks, events; re-seed
-npm run seed                     # seed only if no owner exists
-npm run test:fixtures            # extraction fixtures
-npx convex run events:listRecentForOwner '{"ownerId": "<id>"}'
-npx convex run testing:recentMessages '{"count": 4}'
+npm run reset                                   # dev only: deletes every owner and their data on YOUR dev deployment
+npx convex run testing:snapshot '{"email": "you@gmail.com"}'       # an owner's cases, actions, events, messages
+npx convex run testing:reseedBank '{"email": "you@gmail.com", "withoutTreasuryPayment": true}'
+npx convex run events:listForOwner '{"ownerId": "<id>"}'
+npm run test:fixtures                           # extraction fixtures
 ```

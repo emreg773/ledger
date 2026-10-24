@@ -13,6 +13,7 @@ import { getPlaybook } from "./playbooks";
 import type { Playbook } from "./playbooks/schema";
 import { checkSender, type SenderCheck } from "./senderCheck";
 import { checkBankHistory, type BankCheckResult, type PayBillResult } from "./nessie";
+import { tryAgentRun } from "./limits";
 
 type ReadDocumentOutput =
   | { ok: false; error: string; needsClearerPhoto: true }
@@ -336,17 +337,24 @@ export const respond = internalAction({
     promptMessageId: v.string(),
     // Set when this run was started by a new document.
     documentId: v.optional(v.id("documents")),
+    // Set when this run is the follow-up reply to an action (notifyActionResult).
+    afterActionId: v.optional(v.id("actions")),
   },
-  handler: async (ctx, { ownerId, promptMessageId, documentId }) => {
+  handler: async (ctx, { ownerId, promptMessageId, documentId, afterActionId }) => {
     const owner = await ctx.runQuery(internal.owners.get, { ownerId });
     if (!owner) throw new Error(`Owner not found: ${ownerId}`);
 
+    const startedAt = Date.now();
     try {
       await ledgerAgent.generateText(
         ctx,
         { threadId: owner.agentThreadId, userId: ownerId },
         { promptMessageId, instructions: buildInstructions(owner.preferredLanguage) },
       );
+      // Push only for runs the owner didn't start by typing (they're already looking).
+      if (documentId || afterActionId) {
+        await ctx.runMutation(internal.push.afterAgentRun, { ownerId, documentId, afterActionId, startedAt });
+      }
     } catch (e) {
       // Don't leave the owner staring at "working...": record the failure
       // and post a short note in the thread.
@@ -383,6 +391,14 @@ export const recordFailure = internalMutation({
       summary: `Ledger could not finish: ${args.error.slice(0, 200)}`,
       data: { documentId: args.documentId },
     });
+    if (args.documentId) {
+      const doc = await ctx.db.get(args.documentId);
+      await ctx.runMutation(internal.push.notifyOwner, {
+        ownerId: args.ownerId,
+        kind: "document_failed",
+        caseId: doc?.caseId,
+      });
+    }
     await saveMessage(ctx, components.agent, {
       threadId: args.threadId,
       userId: args.ownerId,
@@ -427,12 +443,20 @@ export const notifyActionResult = internalMutation({
       return null;
     }
 
+    // The global daily cap also covers follow-up replies. Over it, the card still
+    // shows the result; only the chat reply (and its push) is skipped.
+    if (!(await tryAgentRun(ctx, ownerId))) return null;
     const { messageId } = await saveMessage(ctx, components.agent, {
       threadId: owner.agentThreadId,
       userId: ownerId,
       prompt: `${SYSTEM_NOTE_PREFIX} ${note} Don't propose new actions in this reply.`,
     });
-    await ctx.scheduler.runAfter(0, internal.agent.respond, { ownerId, promptMessageId: messageId });
+    await ctx.scheduler.runAfter(0, internal.agent.respond, {
+      ownerId,
+      promptMessageId: messageId,
+      // A push follows the reply for executed and failed actions, not rejections.
+      afterActionId: action.status === "rejected" ? undefined : actionId,
+    });
     return null;
   },
 });

@@ -108,3 +108,39 @@ export const resetDemo = internalMutation({
     return null;
   },
 });
+
+const ORPHAN_AGE_MS = 60 * 60 * 1000;
+
+/**
+ * Hourly (crons.ts): deletes uploads older than an hour that no document uses.
+ * These are files whose ingest was refused (wrong type, too large, rate limited)
+ * or never called; the refusal can't delete them itself because it throws.
+ */
+export const cleanupOrphanUploads = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const cutoff = Date.now() - ORPHAN_AGE_MS;
+    const files = await ctx.db.system
+      .query("_storage")
+      .withIndex("by_creation_time", (q) => q.lt("_creationTime", cutoff))
+      .order("desc")
+      .take(200);
+    let deleted = 0;
+    for (const file of files) {
+      const used =
+        (await ctx.db
+          .query("documents")
+          .withIndex("by_storageId", (q) => q.eq("storageId", file._id))
+          .first()) ??
+        (await ctx.db
+          .query("generatedDocuments")
+          .withIndex("by_storageId", (q) => q.eq("storageId", file._id))
+          .first());
+      if (!used) {
+        await ctx.storage.delete(file._id);
+        deleted++;
+      }
+    }
+    return { deleted };
+  },
+});
