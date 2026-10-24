@@ -19,7 +19,13 @@ import type * as extraction from "../extraction.js";
 import type * as intake from "../intake.js";
 import type * as models from "../models.js";
 import type * as nessie from "../nessie.js";
+import type * as officialContacts from "../officialContacts.js";
 import type * as owners from "../owners.js";
+import type * as playbooks_countyHealthInspection from "../playbooks/countyHealthInspection.js";
+import type * as playbooks_index from "../playbooks/index.js";
+import type * as playbooks_irs972cg from "../playbooks/irs972cg.js";
+import type * as playbooks_irsCp14 from "../playbooks/irsCp14.js";
+import type * as senderCheck from "../senderCheck.js";
 import type * as shared from "../shared.js";
 import type * as testing from "../testing.js";
 
@@ -41,7 +47,13 @@ declare const fullApi: ApiFromModules<{
   intake: typeof intake;
   models: typeof models;
   nessie: typeof nessie;
+  officialContacts: typeof officialContacts;
   owners: typeof owners;
+  "playbooks/countyHealthInspection": typeof playbooks_countyHealthInspection;
+  "playbooks/index": typeof playbooks_index;
+  "playbooks/irs972cg": typeof playbooks_irs972cg;
+  "playbooks/irsCp14": typeof playbooks_irsCp14;
+  senderCheck: typeof senderCheck;
   shared: typeof shared;
   testing: typeof testing;
 }>;

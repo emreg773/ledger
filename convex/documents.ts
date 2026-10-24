@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { internalMutation, mutation, query } from "./_generated/server";
+import { internalMutation, internalQuery, mutation, query } from "./_generated/server";
 import { logEvent } from "./events";
 import { MIN_CONFIDENCE, type Extraction } from "./extraction";
 
@@ -93,10 +93,27 @@ export const saveExtraction = internalMutation({
     };
 
     // Idempotent: re-reading a document updates its case instead of opening a second one.
-    const existing = await ctx.db
-      .query("cases")
-      .withIndex("by_document", (q) => q.eq("documentId", doc._id))
-      .first();
+    // Re-uploading the same letter (a new file, so a new document row) joins the
+    // open case for the same notice: same type, amount and deadline.
+    const existing =
+      (await ctx.db
+        .query("cases")
+        .withIndex("by_document", (q) => q.eq("documentId", doc._id))
+        .first()) ??
+      (await ctx.db
+        .query("cases")
+        .withIndex("by_owner", (q) => q.eq("ownerId", doc.ownerId))
+        .order("desc")
+        .take(50)
+        .then((cases) =>
+          cases.find(
+            (c) =>
+              c.status !== "resolved" &&
+              c.docType === extraction.docType &&
+              c.amountDue === extraction.amountDue &&
+              c.deadline === extraction.deadline,
+          ),
+        ));
     if (existing) {
       await ctx.db.patch(existing._id, caseFields);
       await ctx.db.patch(doc._id, { caseId: existing._id });
@@ -104,7 +121,10 @@ export const saveExtraction = internalMutation({
         ownerId: doc.ownerId,
         caseId: existing._id,
         type: "case_updated",
-        summary: `Updated case from a re-read: ${title}`,
+        summary:
+          existing.documentId === doc._id
+            ? `Updated case from a re-read: ${title}`
+            : `Same notice uploaded again; kept the existing case: ${title}`,
         data: { documentId: doc._id },
       });
       return { caseId: existing._id };
@@ -127,4 +147,9 @@ export const saveExtraction = internalMutation({
     });
     return { caseId };
   },
+});
+
+export const getInternal = internalQuery({
+  args: { documentId: v.id("documents") },
+  handler: async (ctx, { documentId }) => await ctx.db.get(documentId),
 });

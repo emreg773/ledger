@@ -8,7 +8,7 @@ import ReactMarkdown from "react-markdown";
 import { Camera, Loader2, SendHorizontal } from "lucide-react";
 import { api } from "@/convex/_generated/api";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
-import { DOCUMENT_MARKER, LANGUAGES } from "@/convex/shared";
+import { DOCUMENT_MARKER, LANGUAGES, SYSTEM_NOTE_PREFIX } from "@/convex/shared";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -68,8 +68,11 @@ function OwnerChat({ owner }: { owner: Doc<"owners"> }) {
 
   // Messages to show: user messages, and assistant messages that have text.
   // Tool calls and results are hidden; the document card shows what was read.
+  // Server notes to the agent ("the payment ran") are hidden too.
   const visible = messages.filter(
-    (m) => m.role === "user" || (m.role === "assistant" && m.text.trim() !== ""),
+    (m) =>
+      (m.role === "user" && !m.text.startsWith(SYSTEM_NOTE_PREFIX)) ||
+      (m.role === "assistant" && m.text.trim() !== ""),
   );
 
   // Working = a document is still being processed, a reply is in progress,

@@ -19,3 +19,10 @@ export function languageName(code: string): string {
 // Arrival messages start with this marker so the UI can show a document card.
 export const documentMarker = (documentId: string) => `[document:${documentId}]`;
 export const DOCUMENT_MARKER = /\[document:([a-z0-9]+)\]/;
+
+// The agent puts this on its own line to place an action card (Track B renders it).
+export const actionMarker = (actionId: string) => `[action:${actionId}]`;
+
+// Notes from the server to the agent (e.g. "the payment ran"). Saved as user
+// messages so the model reads them in order; the chat UI hides them.
+export const SYSTEM_NOTE_PREFIX = "[system-note]";

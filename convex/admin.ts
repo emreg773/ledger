@@ -1,13 +1,17 @@
-import { components } from "./_generated/api";
+import { v } from "convex/values";
+import { components, internal } from "./_generated/api";
 import { internalMutation } from "./_generated/server";
 import { insertDemoOwner } from "./owners";
+import { isLive, seedMockBank } from "./nessie";
 
 // Demo reset: npm run reset (npx convex run admin:resetDemo).
+// Test flag: npx convex run admin:resetDemo '{"withoutTreasuryPayment": true}'
+// leaves out the Oct 2 IRS payment, so the CP14 proposes pay_bill.
 // The one place that deletes events; the audit log is append-only otherwise.
 
 export const resetDemo = internalMutation({
-  args: {},
-  handler: async (ctx) => {
+  args: { withoutTreasuryPayment: v.optional(v.boolean()) },
+  handler: async (ctx, { withoutTreasuryPayment = false }) => {
     for (const owner of await ctx.db.query("owners").collect()) {
       const ownerId = owner._id;
       if (owner.agentThreadId) {
@@ -50,8 +54,13 @@ export const resetDemo = internalMutation({
       await ctx.db.delete(ownerId);
     }
 
-    // TODO(step2): re-seed María's Nessie data (Section 5) and save the ids on the owner.
     const ownerId = await insertDemoOwner(ctx);
+    if (isLive()) {
+      // fetch() needs an action; the owner's account ids land a few seconds later.
+      await ctx.scheduler.runAfter(0, internal.nessie.seedLiveBank, { ownerId, withoutTreasuryPayment });
+    } else {
+      await seedMockBank(ctx, ownerId, { withoutTreasuryPayment });
+    }
     return { ownerId };
   },
 });
