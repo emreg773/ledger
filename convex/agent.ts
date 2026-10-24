@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { z } from "zod";
-import type { Tool } from "ai";
+import type { ModelMessage, Tool } from "ai";
 import { Agent, createTool, saveMessage, stepCountIs } from "@convex-dev/agent";
 import { components, internal } from "./_generated/api";
 import { internalAction, internalMutation } from "./_generated/server";
@@ -88,7 +88,21 @@ export const ledgerAgent = new Agent(components.agent, {
   tools: { read_document: readDocument },
   // read_document, then the reply. A little headroom for retries.
   stopWhen: stepCountIs(5),
+  // Thinking blocks from earlier turns fail the API's signature check ("bound to
+  // a different conversation"), which broke every reply after the first. Drop
+  // them from history; the current turn's tool loop keeps its own, as required.
+  contextHandler: async (_ctx, { search, recent, inputMessages, inputPrompt, existingResponses }) => [
+    ...[...search, ...recent].map(withoutReasoning),
+    ...inputMessages,
+    ...inputPrompt,
+    ...existingResponses,
+  ],
 });
+
+function withoutReasoning(message: ModelMessage): ModelMessage {
+  if (message.role !== "assistant" || typeof message.content === "string") return message;
+  return { ...message, content: message.content.filter((part) => part.type !== "reasoning") };
+}
 
 /** Runs the agent on the owner's thread, answering the given prompt message. */
 export const respond = internalAction({
