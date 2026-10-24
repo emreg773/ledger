@@ -2,9 +2,7 @@
 
 A multilingual AI agent for immigrant small business owners. Snap a photo of a government letter; Ledger reads it, explains it in your language, and does the follow-up work. Built at Cal Hacks 13.0.
 
-Current status: **Step 3 of 5**: going live with Google sign-in, one account per business, and web push. Briefs: [docs/ledger-step3-A.md](docs/ledger-step3-A.md) (backend) and [docs/ledger-step3-B.md](docs/ledger-step3-B.md) (frontend and deploy). Steps 1 and 2 are written up in [STEP1_REPORT.md](STEP1_REPORT.md) and [STEP2_REPORT_A.md](STEP2_REPORT_A.md).
-
-Live: *(Vercel URL goes here once the project is connected)*
+Current status: **Step 3 of 5 is live** at **https://ledger-ten-peach.vercel.app**: Google sign-in, one account per business, a sandbox bank per user, and web push. Reports: [STEP1_REPORT.md](STEP1_REPORT.md), [STEP2_REPORT.md](STEP2_REPORT.md), [STEP3_REPORT.md](STEP3_REPORT.md). Step 3 briefs: [docs/ledger-step3-A.md](docs/ledger-step3-A.md) (backend) and [docs/ledger-step3-B.md](docs/ledger-step3-B.md) (frontend and deploy).
 
 ## Stack
 
@@ -27,9 +25,13 @@ For push notifications locally, set `NEXT_PUBLIC_VAPID_PUBLIC_KEY` in `.env.loca
 
 ## Deploy
 
-Vercel builds with `npx convex deploy --cmd 'npm run build'` (see `vercel.json`), so every merge to `main` deploys both the Convex functions and the frontend to production. Preview builds are skipped, so branch code never reaches the prod backend. Vercel env: `CONVEX_DEPLOY_KEY` (prod) and `NEXT_PUBLIC_VAPID_PUBLIC_KEY`.
+Production is deployed with the Vercel CLI from a checkout of the code to ship (the repo is private on another GitHub account, so Vercel's free plan can't deploy it from git):
 
-Each teammate gets their own Convex **dev** deployment inside the shared project, so data and API keys don't collide. Set the API key on yours.
+```bash
+npx vercel deploy --prod
+```
+
+The build runs `npx convex deploy --cmd 'npm run build'` (see `vercel.json`), so it deploys the Convex functions to production and then the frontend. Merging to `main` does **not** update the site. Vercel env: `CONVEX_DEPLOY_KEY` (prod) and `NEXT_PUBLIC_VAPID_PUBLIC_KEY`. The production Convex env is listed in [STEP3_REPORT.md](STEP3_REPORT.md).
 
 ## Testing
 
@@ -69,6 +71,6 @@ fixtures/                                           fake sample documents + expe
 
 ## Git workflow
 
-- `main` is production: every merge deploys. Keep it demo-able. Work on a branch (`step2-playbooks`, `fix-upload`), open a PR, merge when it runs.
+- `main` is always demo-able. Production is deployed by hand (see Deploy). Work on a branch (`step2-playbooks`, `fix-upload`), open a PR, merge when it runs.
 - Pull often; Convex schema changes affect both of us.
 - Never commit keys. `.env.local` is gitignored; secrets go in `npx convex env set`.

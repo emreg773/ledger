@@ -2,7 +2,7 @@
 
 You are continuing **Ledger**, a hackathon project (Cal Hacks 13.0, deadline **Sunday Oct 25, 2026, 9:00 AM PT**). Steps 1 and 2 are merged on `main`. Before writing code, read these files in the repo:
 - `docs/ledger-step1.md`, Sections 1 to 3: what Ledger is and the agent principle.
-- `STEP2_REPORT_A.md`: what exists now, especially "Current status" and "What's needed for production".
+- `STEP2_REPORT.md`: what exists now, especially "Current status" and "What's needed for production".
 - `node_modules/next/dist/docs/01-app/02-guides/progressive-web-apps.md`: the web push pattern this step follows. It uses `web-push` and VAPID keys.
 
 Two developers work in parallel. **You are Track A (backend).** Track B is building sign-in, onboarding, the service worker and the Vercel deploy from a sibling brief. Stick to the files you own (Section 10) and the contract (Section 8).
