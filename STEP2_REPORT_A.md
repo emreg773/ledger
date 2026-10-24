@@ -2,7 +2,11 @@
 
 *Sat Oct 24, 2026. Brief: [docs/ledger-step2-A.md](docs/ledger-step2-A.md).*
 
-**Status:** done and merged into `main`. All 25 acceptance checks pass (`npm run test:scenarios`) on the shared cloud deployment with `NESSIE_MODE=mock`. Typecheck and lint pass. Live Nessie mode is written but **not yet tested** (see known issues).
+**Status:** done and merged into `main`. All 25 acceptance checks passed in an end-to-end run on the shared cloud deployment with `NESSIE_MODE=mock`. With `NESSIE_MODE=live`, the CP14 scenario (11 checks) also passed against the real Nessie API. Typecheck and lint pass.
+
+**Testing from here on is by hand:** run `npm run reset`, upload the fixtures in the app, and read the replies. The end-to-end script took about 10 minutes per run, so it was removed. `testing:snapshot` stays for quick checks from the CLI.
+
+**UI languages:** English, Spanish and Turkish. Chinese, Vietnamese and Korean were removed.
 
 Ledger now investigates on its own before it replies. It checks the sender against official contacts, loads the official playbook, and checks the bank. Then it explains and proposes actions, which Track B's cards approve and execute. After an action runs, Ledger confirms in the owner's language.
 
@@ -12,7 +16,7 @@ Ledger now investigates on its own before it replies. It checks the sender again
 |---|---|---|
 | #2 | `a/step2-schema-stubs` | Schema changes, contract stubs, reset helper, dev setup |
 | #3 | `b/step2-actions-stubs` (Mert) | `convex/actions.ts`: propose, approve, reject, mark done, execute |
-| #4 | `b/step2-ui` (Mert) | Action cards, live activity, six UI languages, friendly document card, `/dev` preview |
+| #4 | `b/step2-ui` (Mert) | Action cards, live activity, UI translation, friendly document card, `/dev` preview |
 | #5 | `a/step2-agent` | Everything below |
 
 While merging, Track A wired Track B's TODOs, since both sides were ready:
@@ -33,7 +37,7 @@ While merging, Track A wired Track B's TODOs, since both sides were ready:
 | Agent | `convex/agent.ts` | Tools `verify_sender`, `load_playbook`, `check_bank_history`, `propose_action`; the Step 2 instructions; a real `notifyActionResult` |
 | Re-upload dedupe | `convex/documents.ts` | Re-reading or re-uploading a notice updates its open case instead of opening another. |
 | Reset | `convex/admin.ts` | `npm run reset`; test flag `'{"withoutTreasuryPayment": true}'` |
-| Tests | `convex/testing.ts`, `scripts/test-scenarios.mjs` | `testing:snapshot`; `npm run test:scenarios [filter]` |
+| Tests | `convex/testing.ts` | `testing:snapshot`: cases, actions, events and the latest messages in one call |
 
 How the sender check works:
 - Phones are normalized with `libphonenumber-js` (1.13.15, pinned).
@@ -72,7 +76,7 @@ On a `pay_bill`, the amount, the account's last 4 digits and the due date are al
 
 **Bills represent past payments.** A bill has a free-text `payee`, a `payment_amount`, a `payment_date` and a `status`, which is exactly "paid X to Y on Z". The memo goes in `nickname`. Purchases need a merchant id, and withdrawals have no payee, so neither fits.
 
-Community projects report that `GET /bills` can fail unless both `payment_date` and `recurring_date` are sent, so both are always sent. In live mode a new bill doesn't change the Nessie balance; in mock mode the balance goes down. The base URL can be overridden with `NESSIE_BASE_URL`, since one report mentions `prod-api.nessieisreal.com`.
+Community projects report that `GET /bills` can fail unless both `payment_date` and `recurring_date` are sent, so both are always sent. In live mode a new bill doesn't change the Nessie balance; in mock mode the balance goes down. The base URL is `https://api.nessieisreal.com`: plain `http://`, as in the SDK and the brief, no longer connects. It can be overridden with `NESSIE_BASE_URL` (`https://prod-api.nessieisreal.com` also answers).
 
 **Mock mode** uses the same functions and return shapes, backed by Convex tables. Seed data:
 - Balance $4,800.00, account ending 4417
@@ -80,7 +84,7 @@ Community projects report that `GET /bills` can fail unless both `payment_date` 
 - Six supplier payments in September and October (produce, meat, paper goods)
 - No $520 payment
 
-## Acceptance results (`NESSIE_MODE=mock`, fresh reset per scenario)
+## Acceptance results (`NESSIE_MODE=mock`, fresh reset per scenario; one end-to-end run)
 
 | Check | Result |
 |---|---|
@@ -110,18 +114,10 @@ The UI with real data in the live chat has not been checked by hand yet; the car
 
 ## Known issues
 
-- **Live Nessie is untested.** Nessie couldn't be reached from the dev machine. To try it:
-  ```bash
-  npx convex env set NESSIE_API_KEY ...
-  npx convex env set NESSIE_MODE live
-  npm run reset
-  npm run test:scenarios -- 972
-  ```
-  If it fails, switch back with `npx convex env set NESSIE_MODE mock`.
+- **Live Nessie: only the CP14 scenario has run end to end.** Seeding, reading bills back, and the Oct 2 match all work. Paying a bill live hasn't been tried yet; approve the 972CG in the app to check it. Nessie only answers over `https://`, and the default now uses it. If Nessie goes down, run `npx convex env set NESSIE_MODE mock` and then `npm run reset`.
 - **Wording varies between runs.** One CP14 reply corrected itself mid-sentence ("2 de octubre... perdón, 2 de noviembre"). Replies also switch between "usted" and "tú". Consider adding a formality rule.
 - **Spanish needs review by a native speaker:** the playbook glossary, the agent's replies, and Track B's `messages/es.json`.
 - **The bank lookback is relative to today.** Seeded payments are dated Sep and Oct 2026, so after about mid-January 2027 the Oct 2 match falls outside the 120 days. Move the seed dates if the demo is later.
-- **The scenario checks are loose in places.** "Asks about a reason" checks for a `?` and "1099", and "reinspection date" checks for "28". Read the printed replies too.
 - **`IGNORE_SAMPLE_WATERMARKS` is still `true`** (from Step 1). Set it to `false` before real documents.
 - **Still from Step 1:** multi-photo documents, no streaming, and no auth.
 
@@ -130,5 +126,5 @@ The UI with real data in the live chat has not been checked by hand yet; the car
 - **Approve flow:** approving a payment calls `actions.approve`, then `actions.execute`, then `nessie.payBill`, then `actions.finish`, then `agent.notifyActionResult`, which posts a hidden note and a reply. Reject and mark done also call `notifyActionResult`.
 - **`owner_task` payload:** `{ instructions, phone?, callScript?: { en, translated }, payment?: { date, amount, payee, memo? } }`.
 - **Suspicious cases:** a suspected scam opens a case (docType `UNKNOWN`, with a "Suspicious letter…" title) with `verification` set.
-- **Before a demo:** run `npm run reset`. Scenario runs leave their last scenario's data in place.
+- **Before a demo:** run `npm run reset`.
 - **Step 3 (Gmail):** intake is unchanged, so Gmail calls `intake.ingestDocument` with `source: "gmail"`, and the whole Step 2 workflow runs as is. Duplicate emails of the same notice are deduplicated by type, amount and deadline.

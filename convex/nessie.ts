@@ -35,7 +35,8 @@ export type PayBillResult = {
 };
 
 export const isLive = () => process.env.NESSIE_MODE === "live";
-const BASE_URL = () => process.env.NESSIE_BASE_URL ?? "http://api.nessieisreal.com";
+// HTTPS only: plain http:// (as in the SDK) no longer connects.
+const BASE_URL = () => process.env.NESSIE_BASE_URL ?? "https://api.nessieisreal.com";
 
 // ---------- Demo data (brief Section 5) ----------
 
