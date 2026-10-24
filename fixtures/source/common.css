@@ -1,0 +1,10 @@
+body{font-family:"Liberation Sans",Arial,sans-serif;font-size:11pt;color:#111;margin:0;}
+.page{position:relative;width:8.5in;height:11in;padding:0.55in 0.6in;box-sizing:border-box;overflow:hidden;page-break-after:always;}
+.wm{position:absolute;top:4.2in;left:-0.6in;width:10in;text-align:center;font-size:58pt;font-weight:bold;color:rgba(200,0,0,0.13);-webkit-transform:rotate(-30deg);z-index:0;}
+.foot{position:absolute;bottom:0.3in;left:0.6in;right:0.6in;font-size:7.5pt;color:#a00;border-top:1px solid #ccc;padding-top:3px;}
+table{border-collapse:collapse}
+.box{border:1px solid #333;padding:6px 8px;font-size:9.5pt}
+.small{font-size:9pt}.tiny{font-size:7.5pt}
+h1{font-size:15pt;margin:14px 0 4px}h2{font-size:12pt;margin:12px 0 4px}
+.amt td{padding:3px 6px;border-bottom:1px solid #ddd}
+.voucher{border-top:2px dashed #555;margin-top:14px;padding-top:8px}
