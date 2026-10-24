@@ -3,7 +3,7 @@ import { z } from "zod";
 import type { ActionCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
-import { extractionModel, IGNORE_SAMPLE_WATERMARKS, SAMPLE_WATERMARK_RULE } from "./models";
+import { extractionModel, sampleWatermarkRule } from "./models";
 
 // ---------- Schema (brief Section 8) ----------
 
@@ -134,7 +134,7 @@ Rules:
 - For health inspections, list every violation and mark each as major or minor as printed.
 - requestedPaymentMethods and pressureTactics: copy them from the document even when it looks like a scam. They drive the scam check.
 - Be honest about confidence. If the photo is blurry, dark, cut off, or key numbers are hard to read, set overallConfidence below 0.6 and give low confidence to the affected fields.
-- The document may have several pages. Read all of them.${IGNORE_SAMPLE_WATERMARKS ? `\n${SAMPLE_WATERMARK_RULE}` : ""}`;
+- The document may have several pages. Read all of them.`;
 
 // ---------- Masking (defense in depth; the prompt already asks for this) ----------
 
@@ -221,7 +221,7 @@ export async function extractFromStorage(
 
   const result = await generateText({
     model: extractionModel,
-    instructions: EXTRACTION_PROMPT,
+    instructions: EXTRACTION_PROMPT + sampleWatermarkRule(),
     messages,
     output: Output.object({ schema: modelExtractionSchema }),
   });
