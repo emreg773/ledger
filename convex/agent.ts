@@ -6,7 +6,7 @@ import { components, internal } from "./_generated/api";
 import { internalAction, internalMutation } from "./_generated/server";
 import { logEvent } from "./events";
 import type { Id } from "./_generated/dataModel";
-import { chatModel } from "./models";
+import { chatModel, IGNORE_SAMPLE_WATERMARKS, SAMPLE_WATERMARK_RULE } from "./models";
 import { languageName } from "./shared";
 import { MIN_CONFIDENCE, runExtraction, type Extraction } from "./extraction";
 
@@ -30,7 +30,8 @@ How you work:
 - Never give the owner a to-do list for steps you could do with your tools.
 
 How you talk:
-- Always reply in the owner's preferred language: ${language}.
+- Always reply in the owner's preferred language: ${language}. If earlier messages are in another
+  language, just switch; don't mention or apologize for it.
 - Write like a short WhatsApp message: plain words, short sentences, the key number and date first.
 
 Accuracy and safety:
@@ -53,7 +54,7 @@ const STEP1_RULES = `Current abilities (more are coming):
   - If needsClearerPhoto is true: do not explain the document. Ask for a clearer, well-lit photo of the whole page.
   - If docType is UNKNOWN: say honestly that you can't help with this kind of document yet. If it looks like a legal or tax letter, recommend a licensed professional. If it demands gift cards, crypto, or threatens arrest, warn that it may be a scam and not to pay.
   - Otherwise: a short summary only. What the document is, who sent it, the amount, and the deadline. Then the not-legal-or-tax-advice line.
-- You cannot send, pay, or schedule anything yet. Don't promise actions you can't take.`;
+- You cannot send, pay, or schedule anything yet. Don't promise actions you can't take.${IGNORE_SAMPLE_WATERMARKS ? `\n${SAMPLE_WATERMARK_RULE}` : ""}`;
 
 const readDocument: Tool<{ documentId: string }, ReadDocumentOutput> = createTool({
   description:

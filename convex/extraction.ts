@@ -3,7 +3,7 @@ import { z } from "zod";
 import type { ActionCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
-import { extractionModel } from "./models";
+import { extractionModel, IGNORE_SAMPLE_WATERMARKS, SAMPLE_WATERMARK_RULE } from "./models";
 
 // ---------- Schema (brief Section 8) ----------
 
@@ -123,7 +123,7 @@ Rules:
 - Menus, receipts, ads, personal letters and anything outside the listed types: UNKNOWN.
 - For health inspections, list every violation and mark each as major or minor as printed.
 - Be honest about confidence. If the photo is blurry, dark, cut off, or key numbers are hard to read, set overallConfidence below 0.6 and give low confidence to the affected fields.
-- The document may have several pages. Read all of them.`;
+- The document may have several pages. Read all of them.${IGNORE_SAMPLE_WATERMARKS ? `\n${SAMPLE_WATERMARK_RULE}` : ""}`;
 
 // ---------- Masking (defense in depth; the prompt already asks for this) ----------
 
