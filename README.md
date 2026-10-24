@@ -2,7 +2,7 @@
 
 A multilingual AI agent for immigrant small business owners. Snap a photo of a government letter; Ledger reads it, explains it in your language, and does the follow-up work. Built at Cal Hacks 13.0.
 
-Current status: **Step 1 of 8** (document intake, `read_document`, web chat). See [docs/ledger-step1.md](docs/ledger-step1.md) for the brief and [STEP1_REPORT.md](STEP1_REPORT.md) for what's built.
+Current status: **Step 1 of 8** (document intake, `read_document`, web chat). See [HANDOFF.md](HANDOFF.md) for where we left off and [docs/ledger-step1.md](docs/ledger-step1.md) for the brief.
 
 ## Stack
 
