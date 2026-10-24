@@ -2,6 +2,8 @@
 
 *Sat Oct 24, 2026. Brief: [docs/ledger-step1.md](docs/ledger-step1.md).*
 
+**Status:** merged into `main` via PR #1 (`fix-extraction`). At review, typecheck and lint were re-run and passed. The fixture and acceptance results below come from Mert's runs on a local anonymous Convex backend. They haven't been re-run since the merge, and no cloud project exists yet.
+
 Step 1 works end to end. A photo or PDF goes in through one intake function. Ledger reads it, opens a case, logs every step, and replies in the owner's language. All 10 fixtures pass (41/41 checks), and every acceptance check in Section 11 passed, both from the CLI and through the UI at phone width.
 
 ## What was built
@@ -70,7 +72,13 @@ Step 1 works end to end. A photo or PDF goes in through one intake function. Led
 ## Bugs found and fixed during testing
 
 1. **"Schema is too complex"** (`convex/extraction.ts`). Every extraction failed because optional fields inside the optional `inspection` object pushed the structured-output schema past the API's limit. The model now gets nullable fields there, and `toStoredExtraction()` drops the nulls, so storage keeps the brief's shape.
-2. **Every reply after the first failed** (`convex/agent.ts`). Thinking blocks replayed from earlier turns failed the API's signature check ("bound to a different conversation"). A `contextHandler` now removes reasoning parts from history; the current turn's tool loop keeps its own.
+2. **Every reply after the first failed** (`convex/agent.ts`). `claude-sonnet-5-5` thinks before it answers, and the API returns that reasoning as signed blocks. The Agent component saves them and sends them back with the history on the next turn. The API rejected the replayed blocks ("bound to a different conversation"). Most likely cause: the history we send isn't byte-identical to what the model saw when it wrote them. The Agent sends a window of recent messages, and the instructions change when the owner switches language. The root cause wasn't confirmed.
+
+   Fix: a `contextHandler` removes reasoning parts from **earlier turns** only.
+   - **Kept:** every user message, every final reply, and every tool call and tool result, including the full extraction JSON. That's where all facts come from (Section 6: "only state facts from the extracted document data").
+   - **Kept:** reasoning inside the **current** turn's tool loop. The API requires it when thinking and tool use are combined.
+   - **Lost:** the model's scratch notes from earlier turns. The cost is small: in a later turn the model can't see *how* it reached an earlier answer, only the answer itself. There may also be less prompt-cache reuse.
+   - **Alternatives if this ever matters:** find the real mismatch and stop modifying history, or turn thinking off for chat replies. Replies are short summaries of data already extracted, so they may not need thinking, and they'd come back faster. Neither has been tested.
 3. **Font fell back to Times** (`app/globals.css`). `--font-sans` pointed at itself. It now points at Geist.
 
 ## Deviations from the brief
