@@ -9,6 +9,7 @@
     "lint": "eslint",
     "dev:backend": "convex dev",
     "seed": "convex run owners:seedDemoOwner",
+    "reset": "convex run admin:resetDemo",
     "test:fixtures": "tsx scripts/test-fixtures.ts",
     "typecheck": "tsc --noEmit"
   },
