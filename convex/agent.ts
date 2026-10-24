@@ -167,3 +167,18 @@ export const recordFailure = internalMutation({
     });
   },
 });
+
+/**
+ * Called by Track B's executor after an action changes status (executed, failed,
+ * rejected, done). STUB: logs only. The real version adds a system note to the
+ * thread and schedules a short reply in the owner's language.
+ */
+export const notifyActionResult = internalMutation({
+  args: { ownerId: v.id("owners"), actionId: v.id("actions") },
+  handler: async (ctx, { ownerId, actionId }) => {
+    const action = await ctx.db.get(actionId);
+    if (!action) return null;
+    console.log(`notifyActionResult (stub): ${action.type} ${actionId} is ${action.status}`, ownerId);
+    return null;
+  },
+});

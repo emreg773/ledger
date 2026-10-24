@@ -32,6 +32,8 @@ export const actionType = v.union(
   v.literal("create_document"),
   v.literal("add_calendar_event"),
   v.literal("schedule_followup"),
+  // Step 2: a human-only step (a call, a signature). Instructions are in the payload.
+  v.literal("owner_task"),
 );
 
 export const autonomyLevel = v.union(
@@ -56,6 +58,33 @@ export const taskStatus = v.union(
   v.literal("rejected"),
 );
 
+export const verificationVerdict = v.union(
+  v.literal("verified"),
+  v.literal("suspicious"),
+  v.literal("unverified"),
+);
+
+// Step 2: result of verify_sender, saved on the case.
+export const caseVerification = v.object({
+  verdict: verificationVerdict,
+  reasons: v.array(v.string()),
+});
+
+// Step 2: result of check_bank_history, saved on the case.
+export const bankPaymentMatch = v.object({
+  date: v.string(), // ISO date
+  amount: v.number(),
+  payee: v.string(),
+  memo: v.optional(v.string()),
+});
+
+export const caseBankCheck = v.object({
+  balance: v.number(),
+  matches: v.array(bankPaymentMatch),
+  canAffordFullPayment: v.boolean(),
+  checkedAt: v.number(),
+});
+
 export default defineSchema({
   owners: defineTable({
     name: v.string(),
@@ -67,6 +96,10 @@ export default defineSchema({
     email: v.optional(v.string()),
     whatsappNumber: v.optional(v.string()),
     agentThreadId: v.string(),
+    // Step 2: Nessie bank account (live or mock)
+    nessieCustomerId: v.optional(v.string()),
+    nessieAccountId: v.optional(v.string()),
+    accountLast4: v.optional(v.string()),
   })
     .index("by_email", ["email"])
     .index("by_whatsappNumber", ["whatsappNumber"]),
@@ -93,6 +126,8 @@ export default defineSchema({
     extraction: v.optional(v.any()),
     status: documentStatus,
     error: v.optional(v.string()),
+    // Set when the extraction opens (or updates) a case, so the UI can link them.
+    caseId: v.optional(v.id("cases")),
   })
     .index("by_owner", ["ownerId"])
     .index("by_owner_and_status", ["ownerId", "status"])
@@ -107,6 +142,10 @@ export default defineSchema({
     deadline: v.optional(v.string()), // ISO date
     status: caseStatus,
     createdAt: v.number(),
+    // Step 2: the investigation results
+    verification: v.optional(caseVerification),
+    bankCheck: v.optional(caseBankCheck),
+    playbookDocType: v.optional(v.string()),
   })
     .index("by_owner", ["ownerId"])
     .index("by_owner_and_status", ["ownerId", "status"])
@@ -125,6 +164,8 @@ export default defineSchema({
     createdAt: v.number(),
     decidedAt: v.optional(v.number()),
     executedAt: v.optional(v.number()),
+    // The agent message whose [action:<id>] marker shows this action's card.
+    threadMessageId: v.optional(v.string()),
   })
     .index("by_case", ["caseId"])
     .index("by_owner_and_status", ["ownerId", "status"]),

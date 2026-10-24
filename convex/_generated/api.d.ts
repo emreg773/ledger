@@ -8,13 +8,16 @@
  * @module
  */
 
+import type * as admin from "../admin.js";
 import type * as agent from "../agent.js";
+import type * as cases from "../cases.js";
 import type * as chat from "../chat.js";
 import type * as documents from "../documents.js";
 import type * as events from "../events.js";
 import type * as extraction from "../extraction.js";
 import type * as intake from "../intake.js";
 import type * as models from "../models.js";
+import type * as nessie from "../nessie.js";
 import type * as owners from "../owners.js";
 import type * as shared from "../shared.js";
 import type * as testing from "../testing.js";
@@ -26,13 +29,16 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  admin: typeof admin;
   agent: typeof agent;
+  cases: typeof cases;
   chat: typeof chat;
   documents: typeof documents;
   events: typeof events;
   extraction: typeof extraction;
   intake: typeof intake;
   models: typeof models;
+  nessie: typeof nessie;
   owners: typeof owners;
   shared: typeof shared;
   testing: typeof testing;
