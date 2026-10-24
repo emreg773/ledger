@@ -14,7 +14,7 @@ The acceptance table below says what was checked and what is waiting.
 | PR | Branch | What |
 |---|---|---|
 | #9 | `a/step3-auth-stubs` | Convex Auth with Google, `access.ts`, every public function scoped to the session owner, owner functions, per-owner bank, push subscription functions, the schema |
-| #10 | `a/step3-push-limits` | Rate limits and the daily kill switch, upload checks, push sending (`pushNode.ts`) with every trigger, hourly cleanup of unused uploads, dev setup docs, this report |
+| #11 | `a/step3-push-limits` | Rate limits and the daily kill switch, upload checks, push sending (`pushNode.ts`) with every trigger, hourly cleanup of unused uploads, dev setup docs, this report |
 
 ## What was built
 
