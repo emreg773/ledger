@@ -137,5 +137,7 @@
   "menu.deleteWord": "SİL",
   "menu.deleteConfirm": "Her şeyi sil",
   "menu.signOut": "Çıkış yap",
-  "bank.sandbox": "Deneme bankası"
+  "bank.sandbox": "Deneme bankası",
+  "legal.privacy": "Gizlilik Politikası",
+  "legal.terms": "Hizmet Koşulları"
 }

@@ -147,6 +147,11 @@ export function AppMenu({ owner, push }: { owner: Doc<"owners">; push: ReturnTyp
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => void signOut()}>{t("menu.signOut")}</DropdownMenuItem>
           </DropdownMenuGroup>
+          <DropdownMenuSeparator />
+          <DropdownMenuGroup>
+            <DropdownMenuItem render={<a href="/privacy" />}>{t("legal.privacy")}</DropdownMenuItem>
+            <DropdownMenuItem render={<a href="/terms" />}>{t("legal.terms")}</DropdownMenuItem>
+          </DropdownMenuGroup>
         </DropdownMenuContent>
       </DropdownMenu>
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { Loader2 } from "lucide-react";
@@ -136,6 +137,7 @@ function SignIn({ language, onLanguage }: { language: string; onLanguage: (c: st
       </div>
       <LanguageButtons language={language} onLanguage={onLanguage} />
       <p className="text-xs text-muted-foreground">{t("privacy.notice")}</p>
+      <LegalLinks />
     </main>
   );
 }
@@ -235,6 +237,17 @@ export function Onboarding({ language, onLanguage }: { language: string; onLangu
       <Button variant="link" className="self-center" onClick={() => void signOut()}>
         {t("menu.signOut")}
       </Button>
+      <LegalLinks />
     </main>
+  );
+}
+
+function LegalLinks() {
+  const { t } = useI18n();
+  return (
+    <nav className="flex justify-center gap-4 text-xs text-muted-foreground [&_a]:underline [&_a]:underline-offset-2">
+      <Link href="/privacy">{t("legal.privacy")}</Link>
+      <Link href="/terms">{t("legal.terms")}</Link>
+    </nav>
   );
 }

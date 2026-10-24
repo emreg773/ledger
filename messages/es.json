@@ -137,5 +137,7 @@
   "menu.deleteWord": "ELIMINAR",
   "menu.deleteConfirm": "Eliminar todo",
   "menu.signOut": "Cerrar sesión",
-  "bank.sandbox": "Banco de prueba"
+  "bank.sandbox": "Banco de prueba",
+  "legal.privacy": "Política de privacidad",
+  "legal.terms": "Términos del servicio"
 }

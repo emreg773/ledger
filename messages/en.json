@@ -137,5 +137,7 @@
   "menu.deleteWord": "DELETE",
   "menu.deleteConfirm": "Delete everything",
   "menu.signOut": "Sign out",
-  "bank.sandbox": "Sandbox bank"
+  "bank.sandbox": "Sandbox bank",
+  "legal.privacy": "Privacy Policy",
+  "legal.terms": "Terms of Service"
 }
