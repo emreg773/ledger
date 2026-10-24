@@ -2,13 +2,14 @@
 
 Both tracks use one shared Convex **cloud dev deployment**, so actions, cases and events written by one track are visible to the other.
 
-**Deployment URL:** `TODO: fill in after the cloud project is linked` (e.g. `https://<name>.convex.cloud`)
+**Deployment:** `dev:fast-fish-37` (team `emreg`, project `ledger`), URL https://fast-fish-37.convex.cloud
 
 ## First-time link (done once, by Track A)
 
 ```bash
 npx convex login                 # opens a browser; log in with the team account
 npx convex dev --configure=new   # create project "ledger" in the team; choose a cloud dev deployment
+                                 # answer No to "link your existing deployment" and to "Set up Convex AI files"
 npx convex env set ANTHROPIC_API_KEY sk-ant-...
 npx convex env set NESSIE_MODE mock          # or "live" with NESSIE_API_KEY set
 npm run reset                    # María, her thread, and her (mock) bank data
