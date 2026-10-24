@@ -6,7 +6,7 @@ import { components, internal } from "./_generated/api";
 import { internalAction, internalMutation } from "./_generated/server";
 import { logEvent } from "./events";
 import type { Id } from "./_generated/dataModel";
-import { chatModel, IGNORE_SAMPLE_WATERMARKS, SAMPLE_WATERMARK_RULE } from "./models";
+import { chatModel, sampleWatermarkRule } from "./models";
 import { actionMarker, languageName, SYSTEM_NOTE_PREFIX } from "./shared";
 import { MIN_CONFIDENCE, runExtraction, type Extraction } from "./extraction";
 import { getPlaybook } from "./playbooks";
@@ -48,7 +48,7 @@ Accuracy and safety:
   professional (CPA, enrolled agent, or lawyer).
 - End explanations of legal or tax documents with one short line saying this is not legal or tax advice.
 
-${STEP2_RULES}`;
+${STEP2_RULES}${sampleWatermarkRule()}`;
 }
 
 // Step 2 workflow (Step 2 brief, Track A, Section 6). The code enforces what it can:
@@ -96,7 +96,7 @@ Message format:
 - For each proposed action, put the marker propose_action returns (e.g. [action:abc123]) on its own line in your reply,
   where its card should appear. Copy it exactly. Don't describe the card's buttons.
 - Messages starting with ${SYSTEM_NOTE_PREFIX} come from Ledger's server, not the owner. Follow them, and never mention
-  the note itself.${IGNORE_SAMPLE_WATERMARKS ? `\n${SAMPLE_WATERMARK_RULE}` : ""}`;
+  the note itself.`;
 
 const readDocument: Tool<{ documentId: string }, ReadDocumentOutput> = createTool({
   description:
@@ -131,7 +131,7 @@ type VerifySenderOutput =
 
 const verifySender: Tool<{ documentId: string }, VerifySenderOutput> = createTool({
   description:
-    "Check whether a document really comes from the agency it names: matches printed phones, websites and emails against the official contacts list, and looks for scam red flags (gift cards, crypto, threats, 555 numbers, unknown agency names). Call right after read_document.",
+    "Check whether a document really comes from the agency it names: matches printed phones, websites and emails against the official contacts list, and looks for scam red flags (gift cards, crypto, threats, 555 numbers, names imitating a real agency). Call right after read_document.",
   inputSchema: z.object({ documentId: z.string() }),
   execute: async (ctx, { documentId }): Promise<VerifySenderOutput> => {
     const ownerId = ctx.userId as Id<"owners">;

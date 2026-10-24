@@ -27,12 +27,18 @@ const RISKY_PAYMENT_METHODS: { pattern: RegExp; label: string }[] = [
   { pattern: /zelle|venmo|cash ?app|paypal/i, label: "a payment app" },
 ];
 
-/** Loose keywords that show which agency a letter pretends to be. */
+/**
+ * Keywords in a printed agency name that imitate a known agency without matching
+ * it, e.g. "Internal Revenue Tax Enforcement Division". Only the name is checked:
+ * a real state tax letter mentions "tax" too and must not count as imitating the IRS.
+ */
 const IMPERSONATION_HINTS: { pattern: RegExp; agency: string }[] = [
-  { pattern: /internal revenue|\birs\b|treasury|\btax\b/i, agency: "IRS" },
-  { pattern: /alameda|health department|environmental health/i, agency: "Alameda County Environmental Health" },
+  { pattern: /internal revenue|\birs\b|treasury/i, agency: "IRS" },
+  { pattern: /alameda/i, agency: "Alameda County Environmental Health" },
   { pattern: /oakland/i, agency: "City of Oakland" },
 ];
+
+const GOVERNMENT_DOMAIN = /\.(gov|us)$/;
 
 function nationalDigits(phone: string): string | undefined {
   return parsePhoneNumberFromString(phone, "US")?.nationalNumber;
@@ -51,13 +57,18 @@ export function checkSender(x: Extraction): SenderCheck {
   const flags: string[] = [];
 
   const named = findAgency(x.issuer.agencyName);
-  const impersonated =
-    named ??
-    OFFICIAL_CONTACTS.find(
-      (c) => c.agency === IMPERSONATION_HINTS.find((h) => h.pattern.test(`${x.issuer.agencyName} ${x.mainIssue}`))?.agency,
-    );
-  if (!named) {
-    flags.push(`"${x.issuer.agencyName}" isn't a known agency name`);
+  const imitated = named
+    ? undefined
+    : OFFICIAL_CONTACTS.find(
+        (c) => c.agency === IMPERSONATION_HINTS.find((h) => h.pattern.test(x.issuer.agencyName))?.agency,
+      );
+  const impersonated = named ?? imitated;
+  if (imitated) {
+    flags.push(`"${x.issuer.agencyName}" looks like the ${imitated.agency} but isn't its real name`);
+  } else if (!named) {
+    // A real agency we don't have contacts for yet (another county, a state
+    // agency). Not a red flag: the result is "unverified" unless other flags fire.
+    reasons.push(`"${x.issuer.agencyName}" isn't on Ledger's list of agencies yet, so its contacts couldn't be checked`);
   }
 
   // Phones
@@ -94,6 +105,8 @@ export function checkSender(x: Extraction): SenderCheck {
     if (agency && isAgencyDomain(domain, agency)) {
       if (named) contactMatches++;
       reasons.push(`Email ${email} is on the official ${agency.agency} domain`);
+    } else if (!agency && GOVERNMENT_DOMAIN.test(domain)) {
+      reasons.push(`Email ${email} is on a government domain`);
     } else {
       flags.push(`Email ${email} isn't from ${agency ? `an official ${agency.agency}` : "a government"} domain`);
     }

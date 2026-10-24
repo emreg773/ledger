@@ -8,6 +8,12 @@
 
 **UI languages:** English, Spanish and Turkish. Chinese, Vietnamese and Korean were removed.
 
+**Real documents:** two fixes landed after the acceptance run, so real letters can be tested:
+- A real agency that isn't on the contacts list now comes out "unverified" instead of "suspicious".
+- The SAMPLE-watermark demo setting is off by default.
+
+See [Current status](#current-status-what-is-real-and-what-is-demo-only) and [Testing with real documents](#testing-with-real-documents).
+
 Ledger now investigates on its own before it replies. It checks the sender against official contacts, loads the official playbook, and checks the bank. Then it explains and proposes actions, which Track B's cards approve and execute. After an action runs, Ledger confirms in the owner's language.
 
 ## Merged PRs
@@ -18,6 +24,8 @@ Ledger now investigates on its own before it replies. It checks the sender again
 | #3 | `b/step2-actions-stubs` (Mert) | `convex/actions.ts`: propose, approve, reject, mark done, execute |
 | #4 | `b/step2-ui` (Mert) | Action cards, live activity, UI translation, friendly document card, `/dev` preview |
 | #5 | `a/step2-agent` | Everything below |
+| #6 | `a/step2-nessie-https` | Nessie over HTTPS (live mode fix); UI languages limited to es, en, tr; e2e script removed |
+| #7 | `a/real-docs-fixes` | Unknown agencies come out "unverified", not "suspicious"; watermark setting moved to an env var, off by default |
 
 While merging, Track A wired Track B's TODOs, since both sides were ready:
 - In `actions.ts`, `owner_task` maps to `human_only`. The executor calls the real `nessie.payBill`, and every final status calls `agent.notifyActionResult`. The mock payment is removed.
@@ -46,10 +54,12 @@ How the sender check works:
   - gift cards, crypto, wire transfers or payment apps as payment methods
   - any pressure tactic
   - a 555 number
-  - an email outside the agency's domain
-  - an agency name that matches no known agency
+  - an email outside the agency's domain (or, for an agency not on the list, outside any `.gov` or `.us` domain)
+  - an agency name that imitates a known agency without matching it, e.g. "Internal Revenue Tax Enforcement Division"
 - `verified` needs at least one contact match and no red flags. Any red flag makes it `suspicious`.
-- When the letter names no real agency, the agency it seems to impersonate is guessed from keywords, so the reply can still give the real number.
+- An agency that isn't on the list and imitates nothing (another county, a state agency) is **not** a red flag. The result is `unverified`, with the reason "isn't on Ledger's list of agencies yet". `propose_action` still refuses to pay it.
+- Imitation is judged on the printed agency name only. An earlier version also read the letter's summary and matched the word "tax", which would have treated a real state tax letter as imitating the IRS.
+- For an imitating letter, the reply gives the real agency's official number.
 - A suspicious UNKNOWN document opens a case titled "Suspicious letter…", so the badge and reasons show in the UI.
 
 ### What the code enforces (not just the prompt)
@@ -93,13 +103,18 @@ Community projects report that `GET /bills` can fail unless both `payment_date` 
 | `972cg.pdf`: verified, `pay_bill` for $520, asks about a reason for filing late | Pass |
 | Approving the 972CG payment: payment made, `executed`, Spanish confirmation with the amount and last 4 | Pass. "Listo, se pagaron $520.00 al United States Treasury desde la cuenta que termina en 4417. El número de confirmación es #MOCK-…" A second approve throws. |
 | Rejecting it: reply offers the dispute path | Pass. "¿Quiere que prepare una declaración para disputar la multa, explicando la causa razonable?" |
-| `scam_irs_photo.jpg`: suspicious with readable reasons, no `pay_bill`, official IRS number | Pass. Flags the unknown agency, the 555 number, the non-IRS email, gift cards, Bitcoin, and 8 pressure tactics. The reply gives 800-829-4933. |
+| `scam_irs_photo.jpg`: suspicious with readable reasons, no `pay_bill`, official IRS number | Pass. Flags the fake agency name, the 555 number, the non-IRS email, gift cards, Bitcoin, and 8 pressure tactics. The reply gives 800-829-4933. |
 | `inspection_yellow_photo.jpg`: yellow, score 77, the 3 majors, the reinspection date, no proposals | Pass |
 | Re-uploading the same document doesn't create a second case | Pass (also no second action card) |
 | `NESSIE_MODE=mock` passes all of the above | Pass |
 | Every step appears in `events` with a readable summary | Pass. Example: "Found a $1,240.18 payment to United States Treasury on 2026-10-02 (Form 941 Q2 2026)" |
 
 The UI with real data in the live chat has not been checked by hand yet; the cards were tested by Track B on mocks at 390px.
+
+The acceptance run happened before PR #7. After it, the new sender rule was checked directly, with no AI calls, on three inputs:
+- the scam letter's contacts: `suspicious`
+- a California Department of Tax and Fee Administration letter with a `cdtfa.ca.gov` email: `unverified` (it was `suspicious` before)
+- a real IRS letter with 800-829-4933: `verified`
 
 ## Deviations from the brief
 
@@ -118,8 +133,53 @@ The UI with real data in the live chat has not been checked by hand yet; the car
 - **Wording varies between runs.** One CP14 reply corrected itself mid-sentence ("2 de octubre... perdón, 2 de noviembre"). Replies also switch between "usted" and "tú". Consider adding a formality rule.
 - **Spanish needs review by a native speaker:** the playbook glossary, the agent's replies, and Track B's `messages/es.json`.
 - **The bank lookback is relative to today.** Seeded payments are dated Sep and Oct 2026, so after about mid-January 2027 the Oct 2 match falls outside the 120 days. Move the seed dates if the demo is later.
-- **`IGNORE_SAMPLE_WATERMARKS` is still `true`** (from Step 1). Set it to `false` before real documents.
+- **Fixture demos need the watermark setting on.** It's now an env var, off by default. Without it, Ledger mentions the SAMPLE marks on every fixture. Run `npx convex env set IGNORE_SAMPLE_WATERMARKS true` before demoing the fixtures, and `npx convex env remove IGNORE_SAMPLE_WATERMARKS` before testing real letters.
 - **Still from Step 1:** multi-photo documents, no streaming, and no auth.
+
+## Current status: what is real and what is demo-only
+
+| Part | Status |
+|---|---|
+| Reading documents (photos and PDFs, via Claude) | Real. Works on any document. |
+| Chat, replies, the three languages | Real |
+| Sender and scam check | Real logic. Its contacts list only covers the IRS, Alameda County Environmental Health and the City of Oakland. |
+| Playbooks | Real, for 3 types only: IRS CP14, IRS 972CG, Alameda health inspection |
+| Action cards (approve, reject, mark done), live activity | Real, with the rules enforced on the server |
+| Bank check and payments | Sandbox only. Nessie is Capital One's hackathon bank: the money and the account are fake. |
+| The owner (María, Taquería La Esquina) | Demo only: one hardcoded owner, no sign-up or login |
+| `npm run seed` / `npm run reset` | Demo only. Reset wipes every owner and all their data, then re-seeds María and her bank. |
+| Hosting | The backend is in the cloud (`dev:fast-fish-37`). The frontend only runs locally (`npm run dev`, http://localhost:3000; `/dev` shows Mert's card preview). |
+
+**How to test:**
+1. Keep `npx convex dev` running.
+2. Run `npm run reset`, then `npm run dev`.
+3. Upload a document in the app and read the reply.
+4. Run `npx convex run testing:snapshot` to see the cases, actions and events behind it.
+
+`npm run test:fixtures` (from Step 1) checks extraction only.
+
+## Testing with real documents
+
+The fixtures are AI-generated examples for testing. They aren't the list of supported documents. What Ledger supports:
+- **Full workflow** (check, explain, propose an action): IRS CP14, IRS 972CG, Alameda County health inspections.
+- **Explanation only, no actions:** IRS CP504, city fines, city code violations, late business-license notices. These are recognized but have no playbook.
+- **Anything else:** Ledger says it can't help yet. It still warns if the document looks like a scam.
+
+Before uploading a real letter:
+- **Black out SSNs, EINs and account numbers.** There's no auth, every public function is open, and the file is sent to Anthropic.
+- **Make sure `IGNORE_SAMPLE_WATERMARKS` is unset**, which is the default.
+- **Expect a payment card for a real CP14.** The bank is fake, so a real CP14 won't match the seeded Oct 2 payment unless it's for exactly $1,240.18.
+- **IRS sample notices are a safe source.** The IRS page for each notice often links a sample.
+
+## What's needed for production
+
+1. **Accounts and security.** Real sign-up and login (Convex Auth or Clerk), one owner per account, and ownership checks in every public function. This replaces the demo owner, `seed` and `reset`.
+2. **Privacy.** A data retention policy, a check of Anthropic's data terms, no sensitive data in logs, and a privacy policy.
+3. **Banking.** Nessie is a sandbox. Reading payment history needs a real bank connection, e.g. Plaid. Paying agencies on the owner's behalf is regulated. A safer first version prepares the payment and links to IRS Direct Pay or EFTPS.
+4. **Legal review** of the playbooks and of the "not legal or tax advice" positioning.
+5. **Coverage.** More agencies in the contacts list, more playbooks (CP504, state tax, city notices).
+6. **Operations.** A Convex production deployment, the frontend on Vercel, error monitoring, cost and rate limits on Claude calls, and CI.
+7. **Quality.** Unit tests for the sender check and the `propose_action` guards, a native speaker's review of the Spanish and Turkish, and a consistent formal register.
 
 ## For Track B and Step 3
 
