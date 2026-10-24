@@ -25,7 +25,7 @@ const AUTONOMY: Record<ActionType, Autonomy> = {
   create_document: "auto",
   add_calendar_event: "auto",
   schedule_followup: "auto",
-  // TODO: after schema PR, add owner_task: "human_only" (and to the propose validator via the schema).
+  owner_task: "human_only",
 };
 
 /** pay_bill payload. owner_task payload: { instructions, callScript?: { en, translated }, phone? }. */
@@ -201,8 +201,7 @@ export const execute = internalAction({
     try {
       let result: unknown;
       if (action.type === "pay_bill") {
-        // TODO: after Track A's PR, replace with: await ctx.runAction(internal.nessie.payBill, { actionId })
-        result = mockPayBill(action.payload as PayBillPayload);
+        result = await ctx.runAction(internal.nessie.payBill, { actionId });
       } else {
         result = { note: "available in a later step" };
       }
@@ -261,20 +260,5 @@ export const finish = internalMutation({
 });
 
 async function notifyAgent(ctx: MutationCtx, ownerId: Id<"owners">, actionId: Id<"actions">) {
-  // TODO: after Track A's PR, replace with:
-  // await ctx.runMutation(internal.agent.notifyActionResult, { ownerId, actionId });
-  void ctx;
-  void ownerId;
-  void actionId;
-}
-
-// TODO: after Track A's PR, delete. Same shape as nessie.payBill's return.
-function mockPayBill(p: PayBillPayload): PayBillResult {
-  return {
-    confirmationId: `MOCK-${Math.random().toString(36).slice(2, 10).toUpperCase()}`,
-    paidAt: Date.now(),
-    amount: p.amount,
-    payee: p.payee,
-    accountLast4: p.accountLast4,
-  };
+  await ctx.runMutation(internal.agent.notifyActionResult, { ownerId, actionId });
 }
