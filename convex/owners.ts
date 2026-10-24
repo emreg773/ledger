@@ -1,7 +1,14 @@
 import { v } from "convex/values";
 import { createThread } from "@convex-dev/agent";
 import { components } from "./_generated/api";
-import { internalMutation, internalQuery, mutation, query } from "./_generated/server";
+import {
+  internalMutation,
+  internalQuery,
+  mutation,
+  query,
+  type MutationCtx,
+} from "./_generated/server";
+import type { Id } from "./_generated/dataModel";
 import { logEvent } from "./events";
 
 // No auth yet: one demo owner. The UI loads whichever owner was seeded first.
@@ -12,26 +19,30 @@ export const seedDemoOwner = internalMutation({
   handler: async (ctx) => {
     const existing = await ctx.db.query("owners").first();
     if (existing) return existing._id;
-
-    // Insert first so the thread can be tied to the owner's id.
-    const ownerId = await ctx.db.insert("owners", {
-      name: "María López",
-      businessName: "Taquería La Esquina",
-      preferredLanguage: "es",
-      city: "Oakland",
-      county: "Alameda",
-      state: "CA",
-      agentThreadId: "",
-    });
-    const agentThreadId = await createThread(ctx, components.agent, {
-      userId: ownerId,
-      title: "Taquería La Esquina",
-    });
-    await ctx.db.patch(ownerId, { agentThreadId });
-    await logEvent(ctx, { ownerId, type: "owner_created", summary: "Demo owner created" });
-    return ownerId;
+    return await insertDemoOwner(ctx);
   },
 });
+
+/** María López and her agent thread. Also used by admin.resetDemo. */
+export async function insertDemoOwner(ctx: MutationCtx): Promise<Id<"owners">> {
+  // Insert first so the thread can be tied to the owner's id.
+  const ownerId = await ctx.db.insert("owners", {
+    name: "María López",
+    businessName: "Taquería La Esquina",
+    preferredLanguage: "es",
+    city: "Oakland",
+    county: "Alameda",
+    state: "CA",
+    agentThreadId: "",
+  });
+  const agentThreadId = await createThread(ctx, components.agent, {
+    userId: ownerId,
+    title: "Taquería La Esquina",
+  });
+  await ctx.db.patch(ownerId, { agentThreadId });
+  await logEvent(ctx, { ownerId, type: "owner_created", summary: "Demo owner created" });
+  return ownerId;
+}
 
 export const getDemoOwner = query({
   args: {},
