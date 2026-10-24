@@ -148,7 +148,8 @@ export default defineSchema({
   })
     .index("by_owner", ["ownerId"])
     .index("by_owner_and_status", ["ownerId", "status"])
-    .index("by_source_and_sourceRef", ["source", "sourceRef"]),
+    .index("by_source_and_sourceRef", ["source", "sourceRef"])
+    .index("by_storageId", ["storageId"]),
 
   cases: defineTable({
     ownerId: v.id("owners"),
@@ -212,7 +213,8 @@ export default defineSchema({
     createdAt: v.number(),
   })
     .index("by_case", ["caseId"])
-    .index("by_owner", ["ownerId"]),
+    .index("by_owner", ["ownerId"])
+    .index("by_storageId", ["storageId"]),
 
   // Step 2: mock Nessie bank (NESSIE_MODE=mock). Same shapes as the live API's
   // accounts and bills, so the demo works when Nessie is down.

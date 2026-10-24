@@ -193,7 +193,7 @@ function toStoredExtraction(raw: ModelExtraction): Extraction {
 
 // ---------- Extraction ----------
 
-const SUPPORTED_TYPES = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
+export const SUPPORTED_TYPES = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
 
 /** Pure extraction: reads a stored file and returns the masked extraction. No db writes. */
 export async function extractFromStorage(
