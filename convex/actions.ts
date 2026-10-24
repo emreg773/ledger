@@ -11,6 +11,7 @@ import {
 import type { Doc, Id } from "./_generated/dataModel";
 import { actionType } from "./schema";
 import { logEvent } from "./events";
+import { requireOwnerOf, viewerOwner } from "./access";
 
 // The action system (Step 2 brief, Track B, Section 3).
 // The agent proposes; the server decides autonomy from the type, never the agent.
@@ -58,10 +59,9 @@ function describe(action: Pick<Doc<"actions">, "type" | "payload" | "summary">):
   return action.summary;
 }
 
+/** The action, if it belongs to the signed-in owner (Step 3: owner from the session). */
 async function load(ctx: MutationCtx, actionId: Id<"actions">) {
-  const action = await ctx.db.get(actionId);
-  if (!action) throw new Error(`Action not found: ${actionId}`);
-  return action;
+  return await requireOwnerOf(ctx, await ctx.db.get(actionId));
 }
 
 // ---------- Contract (shared with Track A) ----------
@@ -178,19 +178,25 @@ export const markDone = mutation({
 export const get = query({
   args: { actionId: v.string() },
   handler: async (ctx, { actionId }) => {
+    const owner = await viewerOwner(ctx);
     const id = ctx.db.normalizeId("actions", actionId);
-    return id ? await ctx.db.get(id) : null;
+    const action = owner && id ? await ctx.db.get(id) : null;
+    return action?.ownerId === owner?._id ? action : null;
   },
 });
 
 export const listForCase = query({
   args: { caseId: v.id("cases") },
-  handler: async (ctx, { caseId }) =>
-    await ctx.db
+  handler: async (ctx, { caseId }) => {
+    const owner = await viewerOwner(ctx);
+    const caseRow = await ctx.db.get(caseId);
+    if (!owner || caseRow?.ownerId !== owner._id) return [];
+    return await ctx.db
       .query("actions")
       .withIndex("by_case", (q) => q.eq("caseId", caseId))
       .order("desc")
-      .collect(),
+      .collect();
+  },
 });
 
 export const execute = internalAction({
@@ -238,7 +244,9 @@ export const finish = internalMutation({
     result: v.any(),
   },
   handler: async (ctx, { actionId, status, result }) => {
-    const action = await load(ctx, actionId);
+    // Internal: runs after execute, with no session, so no ownership check.
+    const action = await ctx.db.get(actionId);
+    if (!action) throw new Error(`Action not found: ${actionId}`);
     await ctx.db.patch(actionId, {
       status,
       result,

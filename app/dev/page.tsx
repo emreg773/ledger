@@ -5,7 +5,13 @@ import { LANGUAGES } from "@/convex/shared";
 import { ActionCardView } from "@/components/action-card";
 import { ActivitySummary, LiveActivity } from "@/components/activity";
 import { DocumentCard } from "@/components/document-card";
+import { Onboarding } from "@/components/app";
+import { AppMenu } from "@/components/app-menu";
+import { Welcome } from "@/components/chat";
+import { NotificationBanner } from "@/components/notifications";
+import type { Doc, Id } from "@/convex/_generated/dataModel";
 import { I18nProvider } from "@/lib/i18n";
+import type { PushState, usePush } from "@/lib/push";
 import type { ActionView } from "@/lib/contract";
 import { mockActions, mockCaseFor, mockCases, mockDocuments, mockEvents } from "@/lib/mocks";
 
@@ -14,6 +20,25 @@ import { mockActions, mockCaseFor, mockCases, mockDocuments, mockEvents } from "
 // The first 972CG card is live: Approve → confirm → "Paying…" → "Paid ✓".
 
 const noop = async () => {};
+
+const mockOwner = {
+  _id: "mock_owner" as Id<"owners">,
+  _creationTime: 0,
+  name: "María López",
+  businessName: "Taquería La Esquina",
+  preferredLanguage: "es",
+  city: "Oakland",
+  county: "Alameda",
+  state: "CA",
+  agentThreadId: "mock_thread",
+} as Doc<"owners">;
+
+const fakePush = (state: PushState): ReturnType<typeof usePush> => ({
+  state,
+  busy: false,
+  enable: async () => true,
+  disable: noop,
+});
 
 export default function DevPreview() {
   const [language, setLanguage] = useState("es");
@@ -35,6 +60,25 @@ export default function DevPreview() {
             ))}
           </select>
         </header>
+
+        <Section title="Step 3: onboarding">
+          <div className="rounded-xl border">
+            <Onboarding language={language} onLanguage={setLanguage} />
+          </div>
+        </Section>
+
+        <Section title="Step 3: header menu, welcome, notification banner">
+          <div className="relative flex items-center justify-between rounded-xl border px-3 py-2">
+            <div className="font-semibold">{mockOwner.businessName}</div>
+            <AppMenu owner={{ ...mockOwner, preferredLanguage: language }} push={fakePush("on")} />
+          </div>
+          <Welcome owner={mockOwner} />
+          {(["default", "needs_install", "denied"] as const).map((state) => (
+            <Labeled key={state} label={state}>
+              <NotificationBanner push={fakePush(state)} />
+            </Labeled>
+          ))}
+        </Section>
 
         <Section title="Demo flow: 972CG (interactive)">
           <LiveActivity steps={mockEvents} caseFor={mockCaseFor} />

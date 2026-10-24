@@ -2,7 +2,7 @@
 
 You are continuing **Ledger**, a hackathon project (Cal Hacks 13.0, deadline **Sunday Oct 25, 2026, 9:00 AM PT**). Steps 1 and 2 are merged on `main`. Before writing code, read these files in the repo:
 - `docs/ledger-step1.md`, Sections 1 to 3: what Ledger is and the agent principle.
-- `STEP2_REPORT_A.md`: what exists now, especially "Current status" and "For Track B and Step 3".
+- `STEP2_REPORT.md`: what exists now, especially "Current status" and "For Track B and Step 3".
 - `node_modules/next/dist/docs/01-app/02-guides/progressive-web-apps.md`: the manifest, service worker, push subscription and iOS install pattern this step follows. This is Next 16; its docs win over what you remember.
 
 Two developers work in parallel. **You are Track B (frontend and deploy).** Track A is building Google sign-in on Convex, one owner per account, ownership checks, per-user banks, rate limits and push sending from a sibling brief. Stick to the files you own (Section 9) and the contract (Section 7).

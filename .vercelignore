@@ -1,0 +1,5 @@
+.env*.local
+.vercel
+test-results
+node_modules
+.next

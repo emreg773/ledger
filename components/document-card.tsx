@@ -132,6 +132,7 @@ function CaseLines({ caseView, extraction }: { caseView: CaseView; extraction?: 
       {caseView.bankCheck && (
         <div className={paid ? "font-medium text-emerald-700 dark:text-emerald-400" : "text-muted-foreground"}>
           {paid ? t("bank.alreadyPaid", { date: formatShortDate(paid.date, language) }) : t("bank.noMatch")}
+          <span className="font-normal text-muted-foreground"> · {t("bank.sandbox")}</span>
         </div>
       )}
     </div>

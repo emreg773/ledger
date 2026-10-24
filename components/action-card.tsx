@@ -130,6 +130,7 @@ function PayBillCard({ action, onApprove, onReject }: { action: ActionView } & H
         <div className="mt-2 space-y-0.5 text-xs text-muted-foreground">
           <div>{t("action.confirmation", { id: r.confirmationId })}</div>
           <div>{formatDateTime(r.paidAt, language)}</div>
+          <SandboxLabel />
         </div>
       </CardShell>
     );
@@ -154,7 +155,9 @@ function PayBillCard({ action, onApprove, onReject }: { action: ActionView } & H
     <CardShell>
       <div className="text-3xl font-semibold tracking-tight">{amount}</div>
       <div className="mt-1 text-sm font-medium">{p.payee}</div>
-      <div className="text-sm text-muted-foreground">{t("action.from", { last4: p.accountLast4 })}</div>
+      <div className="text-sm text-muted-foreground">
+        {t("action.from", { last4: p.accountLast4 })} · <SandboxLabel />
+      </div>
       {p.dueDate && (
         <div className={`mt-1 text-sm ${due?.overdue ? "font-medium text-destructive" : "text-muted-foreground"}`}>
           {t("doc.due", { date: formatDate(p.dueDate, language) })}
@@ -177,7 +180,9 @@ function PayBillCard({ action, onApprove, onReject }: { action: ActionView } & H
             <AlertDialogTitle>
               {t("action.confirmTitle", { amount, payee: p.payee, last4: p.accountLast4 })}
             </AlertDialogTitle>
-            <AlertDialogDescription>{t("action.confirmBody")}</AlertDialogDescription>
+            <AlertDialogDescription>
+              {t("action.confirmBody")} <SandboxLabel />
+            </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel className="h-11">{t("action.cancel")}</AlertDialogCancel>
@@ -301,5 +306,15 @@ function GenericCard({ action }: { action: ActionView }) {
         )}
       </div>
     </CardShell>
+  );
+}
+
+/** Nessie is a sandbox: say so wherever a payment shows, so nobody thinks real money moved. */
+function SandboxLabel() {
+  const { t } = useI18n();
+  return (
+    <span className="rounded bg-amber-100 px-1 py-px text-[11px] font-medium text-amber-900 dark:bg-amber-900/40 dark:text-amber-200">
+      {t("bank.sandbox")}
+    </span>
   );
 }
