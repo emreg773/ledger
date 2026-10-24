@@ -55,7 +55,7 @@ The payload is `{ title: "Ledger", body, url: "/?case=<caseId>", tag: "case-<cas
 
 ## Deployments and env (no values)
 
-| | Dev | Production |
+| | Dev (Emre's; each member has their own) | Production |
 |---|---|---|
 | Deployment | `dev:fast-fish-37` | `prod:majestic-wolverine-921` |
 | Set | `ANTHROPIC_API_KEY`, `NESSIE_MODE`, `NESSIE_API_KEY`, `SITE_URL` (http://localhost:3000), `JWT_PRIVATE_KEY`, `JWKS`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` | **Nothing yet** |

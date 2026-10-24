@@ -2,7 +2,7 @@
 
 *Sat Oct 24, 2026. Brief: [docs/ledger-step2-A.md](docs/ledger-step2-A.md).*
 
-**Status:** done and merged into `main`. All 25 acceptance checks passed in an end-to-end run on the shared cloud deployment with `NESSIE_MODE=mock`. With `NESSIE_MODE=live`, the CP14 scenario (11 checks) also passed against the real Nessie API. Typecheck and lint pass.
+**Status:** done and merged into `main`. All 25 acceptance checks passed in an end-to-end run on the dev deployment `fast-fish-37` with `NESSIE_MODE=mock`. With `NESSIE_MODE=live`, the CP14 scenario (11 checks) also passed against the real Nessie API. Typecheck and lint pass.
 
 **Testing from here on is by hand:** run `npm run reset`, upload the fixtures in the app, and read the replies. The end-to-end script took about 10 minutes per run, so it was removed. `testing:snapshot` stays for quick checks from the CLI.
 
