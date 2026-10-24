@@ -98,7 +98,7 @@ export const mockCases = {
     verification: { verdict: "verified", reasons: ["Notice code and phone match the IRS"] },
     bankCheck: {
       balance: 8432.17,
-      matches: [{ date: "2026-10-02", amount: 1240.18, description: "IRS USATAXPYMT" }],
+      matches: [{ date: "2026-10-02", amount: 1240.18, payee: "United States Treasury", memo: "Form 941 Q2 2026" }],
       canAffordFullPayment: true,
       checkedAt: NOW,
     },

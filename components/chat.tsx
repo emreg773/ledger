@@ -60,8 +60,11 @@ function OwnerChat({ owner }: { owner: Doc<"owners"> }) {
   );
   const documents = useQuery(api.documents.listForOwner, { ownerId: owner._id });
   const docsById = new Map((documents ?? []).map((d) => [d._id as string, d]));
-  // TODO: after Track A's PR, use events.listRecentForOwner({ ownerId, sinceMs }).
-  const events: RecentEvent[] = useQuery(api.events.listForOwner, { ownerId: owner._id, limit: 100 }) ?? [];
+  const events: RecentEvent[] =
+    useQuery(api.events.listRecentForOwner, { ownerId: owner._id, limit: 100 }) ?? [];
+  const cases = useQuery(api.cases.listForOwner, { ownerId: owner._id });
+  const casesById = new Map((cases ?? []).map((c) => [c._id as string, c]));
+  const caseFor = (caseId: RecentEvent["caseId"]) => (caseId ? casesById.get(caseId) : undefined);
 
   // Messages to show: user messages, and assistant messages that have text.
   // Tool calls and results are hidden; the document card shows what was read.
@@ -103,7 +106,10 @@ function OwnerChat({ owner }: { owner: Doc<"owners"> }) {
           if (docId) {
             return (
               <div key={m.key} className="flex justify-end">
-                <DocumentCard doc={docsById.get(docId)} />
+                <DocumentCard
+                  doc={docsById.get(docId)}
+                  caseView={caseFor(docsById.get(docId)?.caseId)}
+                />
               </div>
             );
           }
@@ -134,12 +140,13 @@ function OwnerChat({ owner }: { owner: Doc<"owners"> }) {
                     visible.slice(0, i).findLast((v) => v.role === "user")?._creationTime ?? 0,
                     visible[i + 1]?._creationTime ?? Infinity,
                   )}
+                  caseFor={caseFor}
                 />
               )}
             </div>
           );
         })}
-        {working && <LiveActivity steps={liveSteps} />}
+        {working && <LiveActivity steps={liveSteps} caseFor={caseFor} />}
         <div ref={bottomRef} />
       </main>
 

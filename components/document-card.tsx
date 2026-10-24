@@ -143,7 +143,7 @@ export function DocumentCard({
   caseView,
 }: {
   doc: DocumentWithUrl | undefined;
-  // TODO: after schema PR, look this up from documents.caseId via cases.get.
+  // The chat looks this up from documents.caseId; /dev passes mocks.
   caseView?: CaseView;
 }) {
   const { t } = useI18n();
