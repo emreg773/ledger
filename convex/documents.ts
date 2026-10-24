@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { internalMutation, internalQuery, mutation, query } from "./_generated/server";
 import { logEvent } from "./events";
 import { MIN_CONFIDENCE, type Extraction } from "./extraction";
+import { requireOwner, viewerOwner } from "./access";
 
 // Short titles for cases, in English. The agent translates when it talks.
 const CASE_TITLES: Record<string, string> = {
@@ -16,16 +17,22 @@ const CASE_TITLES: Record<string, string> = {
 
 export const generateUploadUrl = mutation({
   args: {},
-  handler: async (ctx) => await ctx.storage.generateUploadUrl(),
+  handler: async (ctx) => {
+    await requireOwner(ctx);
+    return await ctx.storage.generateUploadUrl();
+  },
 });
 
 /** Documents for the chat UI, with a viewable URL for each file. */
 export const listForOwner = query({
-  args: { ownerId: v.id("owners") },
-  handler: async (ctx, { ownerId }) => {
+  // TODO(step3): ownerId is ignored and goes away once Track B's UI stops sending it.
+  args: { ownerId: v.optional(v.id("owners")) },
+  handler: async (ctx) => {
+    const owner = await viewerOwner(ctx);
+    if (!owner) return [];
     const docs = await ctx.db
       .query("documents")
-      .withIndex("by_owner", (q) => q.eq("ownerId", ownerId))
+      .withIndex("by_owner", (q) => q.eq("ownerId", owner._id))
       .order("desc")
       .take(50);
     return await Promise.all(

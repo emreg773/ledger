@@ -7,7 +7,7 @@ import { Loader2 } from "lucide-react";
 import { LANGUAGES } from "@/convex/shared";
 import { Button } from "@/components/ui/button";
 import { Chat } from "@/components/chat";
-import { backend } from "@/lib/backend";
+import { api } from "@/convex/_generated/api";
 import { errorMessage } from "@/lib/errors";
 import { I18nProvider, useI18n } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
@@ -41,7 +41,7 @@ function useSignedOutLanguage() {
 
 export function App() {
   const { isLoading, isAuthenticated } = useConvexAuth();
-  const owner = useQuery(backend.owners.me, isAuthenticated ? {} : "skip");
+  const owner = useQuery(api.owners.me, isAuthenticated ? {} : "skip");
   const [language, setLanguage] = useSignedOutLanguage();
 
   if (isLoading || (isAuthenticated && owner === undefined)) return <Spinner />;
@@ -177,7 +177,7 @@ function Field({
 export function Onboarding({ language, onLanguage }: { language: string; onLanguage: (c: string) => void }) {
   const { t } = useI18n();
   const { signOut } = useAuthActions();
-  const completeOnboarding = useMutation(backend.owners.completeOnboarding);
+  const completeOnboarding = useMutation(api.owners.completeOnboarding);
   const [name, setName] = useState("");
   const [businessName, setBusinessName] = useState("");
   const [pending, setPending] = useState(false);

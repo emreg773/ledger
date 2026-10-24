@@ -28,7 +28,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { backend } from "@/lib/backend";
+import { api } from "@/convex/_generated/api";
 import { errorMessage } from "@/lib/errors";
 import { useI18n } from "@/lib/i18n";
 import type { usePush } from "@/lib/push";
@@ -41,10 +41,10 @@ type Confirm = "reset" | "delete" | null;
 export function AppMenu({ owner, push }: { owner: Doc<"owners">; push: ReturnType<typeof usePush> }) {
   const { t } = useI18n();
   const { signOut } = useAuthActions();
-  const setLanguage = useMutation(backend.owners.setLanguage);
-  const sendTest = useMutation(backend.push.sendTest);
-  const resetMyData = useMutation(backend.owners.resetMyData);
-  const deleteMyAccount = useMutation(backend.owners.deleteMyAccount);
+  const setLanguage = useMutation(api.owners.setLanguage);
+  const sendTest = useMutation(api.push.sendTest);
+  const resetMyData = useMutation(api.owners.resetMyData);
+  const deleteMyAccount = useMutation(api.owners.deleteMyAccount);
   const [confirm, setConfirm] = useState<Confirm>(null);
   const [typed, setTyped] = useState("");
   const [pending, setPending] = useState(false);

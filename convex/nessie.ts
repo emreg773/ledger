@@ -62,21 +62,55 @@ function demoPayments(withoutTreasuryPayment: boolean): BankPayment[] {
   return all.sort((a, b) => a.date.localeCompare(b.date));
 }
 
-/** Mock mode: seeds María's account in the same transaction as admin.resetDemo. */
-export async function seedMockBank(
+/**
+ * Gives an owner a fresh sandbox bank with the demo history: mock rows in the same
+ * transaction, or a new Nessie customer and account a few seconds later (live).
+ * Called by onboarding, "Start over with demo data", and admin.resetDemo.
+ */
+export async function seedBankFor(
+  ctx: MutationCtx,
+  ownerId: Id<"owners">,
+  opts: { withoutTreasuryPayment?: boolean } = {},
+) {
+  const withoutTreasuryPayment = opts.withoutTreasuryPayment ?? false;
+  await deleteMockBank(ctx, ownerId);
+  if (isLive()) {
+    // fetch() needs an action. Until it saves the new ids, the owner has no
+    // account and check_bank_history says so.
+    await ctx.db.patch(ownerId, { nessieCustomerId: undefined, nessieAccountId: undefined, accountLast4: undefined });
+    await ctx.scheduler.runAfter(0, internal.nessie.seedLiveBank, { ownerId, withoutTreasuryPayment });
+  } else {
+    await seedMockBank(ctx, ownerId, { withoutTreasuryPayment });
+  }
+}
+
+/** Removes this owner's mock account and bills (other owners' are untouched). */
+export async function deleteMockBank(ctx: MutationCtx, ownerId: Id<"owners">) {
+  const accountId = `mock-account-${ownerId}`;
+  const accounts = await ctx.db
+    .query("mockBankAccounts")
+    .withIndex("by_accountId", (q) => q.eq("accountId", accountId))
+    .collect();
+  const bills = await ctx.db
+    .query("mockBankBills")
+    .withIndex("by_accountId", (q) => q.eq("accountId", accountId))
+    .collect();
+  for (const row of [...accounts, ...bills]) await ctx.db.delete(row._id);
+}
+
+/** Mock mode: seeds the owner's account in the caller's transaction. */
+async function seedMockBank(
   ctx: MutationCtx,
   ownerId: Id<"owners">,
   opts: { withoutTreasuryPayment: boolean },
 ) {
-  for (const row of await ctx.db.query("mockBankAccounts").collect()) await ctx.db.delete(row._id);
-  for (const row of await ctx.db.query("mockBankBills").collect()) await ctx.db.delete(row._id);
-
+  const owner = await ctx.db.get(ownerId);
   const customerId = `mock-customer-${ownerId}`;
   const accountId = `mock-account-${ownerId}`;
   await ctx.db.insert("mockBankAccounts", {
     customerId,
     accountId,
-    nickname: "Taquería La Esquina business checking",
+    nickname: `${owner?.businessName ?? "Business"} checking`,
     balance: DEMO_BALANCE,
     accountNumber: DEMO_ACCOUNT_NUMBER,
   });
@@ -97,13 +131,16 @@ export async function seedMockBank(
   });
 }
 
-/** Live mode: creates a fresh Nessie customer, account and bill history. Scheduled by resetDemo. */
+/** Live mode: creates a fresh Nessie customer, account and bill history. Scheduled by seedBankFor. */
 export const seedLiveBank = internalAction({
   args: { ownerId: v.id("owners"), withoutTreasuryPayment: v.boolean() },
   handler: async (ctx, { ownerId, withoutTreasuryPayment }) => {
+    const owner = await ctx.runQuery(internal.owners.get, { ownerId });
+    if (!owner) return; // deleted before the seed ran
+    const [firstName, ...rest] = owner.name.split(" ");
     const customer = await nessieFetch<{ objectCreated: { _id: string } }>("POST", "/customers", {
-      first_name: "María",
-      last_name: "López",
+      first_name: firstName || "Owner",
+      last_name: rest.join(" ") || "Ledger",
       address: {
         street_number: "1200",
         street_name: "Ejemplo Ave",
@@ -118,7 +155,7 @@ export const seedLiveBank = internalAction({
       `/customers/${customerId}/accounts`,
       {
         type: "Checking",
-        nickname: "Taquería La Esquina business checking",
+        nickname: `${owner.businessName} checking`,
         rewards: 0,
         balance: DEMO_BALANCE,
         account_number: DEMO_ACCOUNT_NUMBER,
@@ -150,7 +187,7 @@ export const saveOwnerAccount = internalMutation({
     accountLast4: v.string(),
   },
   handler: async (ctx, { ownerId, ...ids }) => {
-    await ctx.db.patch(ownerId, ids);
+    if (await ctx.db.get(ownerId)) await ctx.db.patch(ownerId, ids);
   },
 });
 

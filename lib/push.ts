@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useMutation } from "convex/react";
-import { backend } from "@/lib/backend";
+import { api } from "@/convex/_generated/api";
 
 // Browser side of web push (docs/ledger-step3-B.md, Section 6). Track A sends
 // every push; this file only registers the service worker and keeps the
@@ -59,8 +59,8 @@ export async function registerServiceWorker() {
 export function usePush() {
   const [state, setState] = useState<PushState>("loading");
   const [busy, setBusy] = useState(false);
-  const save = useMutation(backend.push.saveSubscription);
-  const remove = useMutation(backend.push.removeSubscription);
+  const save = useMutation(api.push.saveSubscription);
+  const remove = useMutation(api.push.removeSubscription);
 
   // On load: work out the state, and re-save an existing subscription. The
   // upsert covers a rotated endpoint or another owner signing in on this device.

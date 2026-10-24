@@ -1,8 +1,9 @@
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { paginationOptsValidator } from "convex/server";
 import { listUIMessages, saveMessage, syncStreams, vStreamArgs } from "@convex-dev/agent";
 import { components, internal } from "./_generated/api";
 import { mutation, query } from "./_generated/server";
+import { requireOwner, viewerOwner } from "./access";
 
 /** Messages for the chat UI (shape required by useUIMessages). */
 export const listThreadMessages = query({
@@ -12,7 +13,11 @@ export const listThreadMessages = query({
     streamArgs: vStreamArgs,
   },
   handler: async (ctx, args) => {
-    // TODO(auth): check the viewer owns this thread once auth exists.
+    // useUIMessages passes the threadId, so check it's the viewer's own thread.
+    const owner = await viewerOwner(ctx);
+    if (!owner || owner.agentThreadId !== args.threadId) {
+      throw new ConvexError({ code: "not_found", message: "Not found" });
+    }
     const paginated = await listUIMessages(ctx, components.agent, args);
     const streams = await syncStreams(ctx, components.agent, args);
     return { ...paginated, streams };
@@ -21,10 +26,11 @@ export const listThreadMessages = query({
 
 /** A typed message from the owner. Saved now, answered in the background. */
 export const sendMessage = mutation({
-  args: { ownerId: v.id("owners"), text: v.string() },
-  handler: async (ctx, { ownerId, text }) => {
-    const owner = await ctx.db.get(ownerId);
-    if (!owner) throw new Error(`Owner not found: ${ownerId}`);
+  // TODO(step3): ownerId is ignored and goes away once Track B's UI stops sending it.
+  args: { text: v.string(), ownerId: v.optional(v.id("owners")) },
+  handler: async (ctx, { text }) => {
+    const owner = await requireOwner(ctx);
+    const ownerId = owner._id;
     const trimmed = text.trim();
     if (!trimmed) return;
 

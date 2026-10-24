@@ -16,7 +16,6 @@ import { ActionCard } from "@/components/action-card";
 import { ActivitySummary, LiveActivity, activitySteps } from "@/components/activity";
 import { AppMenu } from "@/components/app-menu";
 import { NotificationBanner } from "@/components/notifications";
-import { backend } from "@/lib/backend";
 import { errorMessage } from "@/lib/errors";
 import { useI18n } from "@/lib/i18n";
 import { splitReply } from "@/lib/markers";
@@ -32,10 +31,10 @@ export function Chat({ owner }: { owner: Doc<"owners"> }) {
     { threadId: owner.agentThreadId },
     { initialNumItems: 50, stream: true },
   );
-  const documents = useQuery(backend.documents.listForOwner, {});
+  const documents = useQuery(api.documents.listForOwner, {});
   const docsById = new Map((documents ?? []).map((d) => [d._id as string, d]));
-  const events: RecentEvent[] = useQuery(backend.events.listRecentForOwner, { limit: 100 }) ?? [];
-  const cases = useQuery(backend.cases.listForOwner, {});
+  const events: RecentEvent[] = useQuery(api.events.listRecentForOwner, { limit: 100 }) ?? [];
+  const cases = useQuery(api.cases.listForOwner, {});
   const casesById = new Map((cases ?? []).map((c) => [c._id as string, c]));
   const caseFor = (caseId: RecentEvent["caseId"]) => (caseId ? casesById.get(caseId) : undefined);
 
@@ -182,9 +181,9 @@ export function Welcome({ owner }: { owner: Doc<"owners"> }) {
 
 function Composer() {
   const { t } = useI18n();
-  const generateUploadUrl = useMutation(backend.documents.generateUploadUrl);
-  const ingestWebUpload = useMutation(backend.intake.ingestWebUpload);
-  const sendMessage = useMutation(backend.chat.sendMessage);
+  const generateUploadUrl = useMutation(api.documents.generateUploadUrl);
+  const ingestWebUpload = useMutation(api.intake.ingestWebUpload);
+  const sendMessage = useMutation(api.chat.sendMessage);
   const fileInput = useRef<HTMLInputElement>(null);
   const [text, setText] = useState("");
   const [uploading, setUploading] = useState(false);

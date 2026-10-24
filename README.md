@@ -62,7 +62,6 @@ convex/
   shared.ts        constants shared with the frontend (no server imports)
 components/app.tsx                                  sign-in → onboarding → chat
 components/chat.tsx, app-menu.tsx, *-card.tsx       the chat, header menu and cards
-lib/backend.ts                                      Step 3 contract functions (owner from the session)
 lib/push.ts, components/notifications.tsx, public/sw.js   web push, browser side
 scripts/test-fixtures.ts                            fixture pass/fail harness
 fixtures/                                           fake sample documents + expected values
