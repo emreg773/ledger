@@ -8,61 +8,34 @@ import ReactMarkdown from "react-markdown";
 import { Camera, Loader2, SendHorizontal } from "lucide-react";
 import { api } from "@/convex/_generated/api";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
-import { DOCUMENT_MARKER, LANGUAGES, SYSTEM_NOTE_PREFIX } from "@/convex/shared";
+import { DOCUMENT_MARKER, SYSTEM_NOTE_PREFIX } from "@/convex/shared";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { DocumentCard } from "@/components/document-card";
 import { ActionCard } from "@/components/action-card";
 import { ActivitySummary, LiveActivity, activitySteps } from "@/components/activity";
-import { I18nProvider, useI18n } from "@/lib/i18n";
+import { AppMenu } from "@/components/app-menu";
+import { NotificationBanner } from "@/components/notifications";
+import { backend } from "@/lib/backend";
+import { errorMessage } from "@/lib/errors";
+import { useI18n } from "@/lib/i18n";
 import { splitReply } from "@/lib/markers";
+import { usePush } from "@/lib/push";
 import type { RecentEvent } from "@/lib/contract";
 
 const MAX_BYTES = 10 * 1024 * 1024;
 
-export function Chat() {
-  const owner = useQuery(api.owners.getDemoOwner);
-
-  if (owner === undefined) {
-    return (
-      <div className="flex flex-1 items-center justify-center">
-        <Loader2 className="size-6 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
-  if (owner === null) {
-    return (
-      <div className="m-auto max-w-sm p-6 text-center text-sm">
-        No owner yet. Run <code className="rounded bg-muted px-1">npm run seed</code>
-      </div>
-    );
-  }
-  return (
-    <I18nProvider language={owner.preferredLanguage}>
-      <OwnerChat owner={owner} />
-    </I18nProvider>
-  );
-}
-
-function OwnerChat({ owner }: { owner: Doc<"owners"> }) {
-  const { t } = useI18n();
+export function Chat({ owner }: { owner: Doc<"owners"> }) {
+  const push = usePush();
   const { results: messages } = useUIMessages(
     api.chat.listThreadMessages,
     { threadId: owner.agentThreadId },
     { initialNumItems: 50, stream: true },
   );
-  const documents = useQuery(api.documents.listForOwner, { ownerId: owner._id });
+  const documents = useQuery(backend.documents.listForOwner, {});
   const docsById = new Map((documents ?? []).map((d) => [d._id as string, d]));
-  const events: RecentEvent[] =
-    useQuery(api.events.listRecentForOwner, { ownerId: owner._id, limit: 100 }) ?? [];
-  const cases = useQuery(api.cases.listForOwner, { ownerId: owner._id });
+  const events: RecentEvent[] = useQuery(backend.events.listRecentForOwner, { limit: 100 }) ?? [];
+  const cases = useQuery(backend.cases.listForOwner, {});
   const casesById = new Map((cases ?? []).map((c) => [c._id as string, c]));
   const caseFor = (caseId: RecentEvent["caseId"]) => (caseId ? casesById.get(caseId) : undefined);
 
@@ -89,26 +62,47 @@ function OwnerChat({ owner }: { owner: Doc<"owners"> }) {
   const stepsBetween = (from: number, to: number) =>
     activitySteps(events.filter((e) => e.at >= from && e.at < to));
 
+  // A push opens /?case=<caseId>: scroll to that letter once it has loaded,
+  // highlight it, and skip the usual scroll to the bottom that time.
+  const deepLinkCase = useRef<string | null | undefined>(undefined);
   const bottomRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [visible.length, working]);
+    if (deepLinkCase.current === undefined) {
+      deepLinkCase.current = new URLSearchParams(window.location.search).get("case");
+    }
+    const caseId = deepLinkCase.current;
+    if (!caseId) {
+      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+      return;
+    }
+    if (documents === undefined || visible.length === 0) return;
+    deepLinkCase.current = null;
+    const url = new URL(window.location.href);
+    url.searchParams.delete("case");
+    window.history.replaceState(null, "", url);
+    const el = document.querySelector<HTMLElement>(`[data-case-id="${CSS.escape(caseId)}"]`);
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "start" });
+    el.dataset.highlight = "true";
+    setTimeout(() => delete el.dataset.highlight, 2500);
+  }, [visible.length, working, documents]);
 
   return (
     <div className="mx-auto flex h-dvh w-full max-w-2xl flex-col">
-      <Header owner={owner} />
+      <Header owner={owner} push={push} />
 
       <main className="flex-1 space-y-3 overflow-y-auto px-3 py-4">
-        {visible.length === 0 && (
-          <p className="mt-10 text-center text-sm text-muted-foreground">
-            {t("chat.empty")}
-          </p>
-        )}
+        {visible.length === 0 && <Welcome owner={owner} />}
+        <NotificationBanner push={push} />
         {visible.map((m, i) => {
           const docId = m.role === "user" ? m.text.match(DOCUMENT_MARKER)?.[1] : undefined;
           if (docId) {
             return (
-              <div key={m.key} className="flex justify-end">
+              <div
+                key={m.key}
+                data-case-id={docsById.get(docId)?.caseId}
+                className="flex scroll-mt-4 justify-end rounded-2xl transition-shadow data-highlight:ring-2 data-highlight:ring-ring"
+              >
                 <DocumentCard
                   doc={docsById.get(docId)}
                   caseView={caseFor(docsById.get(docId)?.caseId)}
@@ -153,48 +147,44 @@ function OwnerChat({ owner }: { owner: Doc<"owners"> }) {
         <div ref={bottomRef} />
       </main>
 
-      <Composer ownerId={owner._id} />
+      <Composer />
     </div>
   );
 }
 
-function Header({ owner }: { owner: Doc<"owners"> }) {
-  const { t } = useI18n();
-  const setLanguage = useMutation(api.owners.setLanguage);
+function Header({ owner, push }: { owner: Doc<"owners">; push: ReturnType<typeof usePush> }) {
   return (
-    <header className="flex items-center justify-between gap-2 border-b px-3 py-2">
+    <header className="relative flex items-center justify-between gap-2 border-b px-3 py-2">
       <div className="min-w-0">
         <div className="truncate font-semibold">{owner.businessName}</div>
         <div className="text-xs text-muted-foreground">Ledger</div>
       </div>
-      <Select
-        value={owner.preferredLanguage}
-        onValueChange={(language) => {
-          if (language) void setLanguage({ ownerId: owner._id, language });
-        }}
-      >
-        <SelectTrigger className="w-36" aria-label={t("chat.language")}>
-          <SelectValue>
-            {(code: string) => LANGUAGES.find((l) => l.code === code)?.label ?? code}
-          </SelectValue>
-        </SelectTrigger>
-        <SelectContent>
-          {LANGUAGES.map((l) => (
-            <SelectItem key={l.code} value={l.code}>
-              {l.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <AppMenu owner={owner} push={push} />
     </header>
   );
 }
 
-function Composer({ ownerId }: { ownerId: Id<"owners"> }) {
+/** Shown until the first message: what Ledger is, and that the bank is a sandbox. */
+export function Welcome({ owner }: { owner: Doc<"owners"> }) {
   const { t } = useI18n();
-  const generateUploadUrl = useMutation(api.documents.generateUploadUrl);
-  const ingestWebUpload = useMutation(api.intake.ingestWebUpload);
-  const sendMessage = useMutation(api.chat.sendMessage);
+  return (
+    <div className="mt-4 space-y-2 rounded-xl border bg-card p-4 text-sm">
+      <p className="font-medium">{t("welcome.title", { name: owner.name.split(" ")[0] })}</p>
+      <p>{t("chat.empty")}</p>
+      <ul className="list-disc space-y-1 pl-5 text-muted-foreground">
+        <li>{t("welcome.sandbox")}</li>
+        <li>{t("welcome.samples")}</li>
+        <li>{t("welcome.delete")}</li>
+      </ul>
+    </div>
+  );
+}
+
+function Composer() {
+  const { t } = useI18n();
+  const generateUploadUrl = useMutation(backend.documents.generateUploadUrl);
+  const ingestWebUpload = useMutation(backend.intake.ingestWebUpload);
+  const sendMessage = useMutation(backend.chat.sendMessage);
   const fileInput = useRef<HTMLInputElement>(null);
   const [text, setText] = useState("");
   const [uploading, setUploading] = useState(false);
@@ -223,7 +213,7 @@ function Composer({ ownerId }: { ownerId: Id<"owners"> }) {
         setError(t("chat.uploadTooBig"));
         return;
       }
-      const url = await generateUploadUrl();
+      const url = await generateUploadUrl({});
       const res = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": file.type },
@@ -231,10 +221,9 @@ function Composer({ ownerId }: { ownerId: Id<"owners"> }) {
       });
       if (!res.ok) throw new Error(`Upload failed (${res.status})`);
       const { storageId } = (await res.json()) as { storageId: Id<"_storage"> };
-      await ingestWebUpload({ ownerId, storageId, mimeType: file.type });
+      await ingestWebUpload({ storageId, mimeType: file.type });
     } catch (e) {
-      console.error(e);
-      setError(t("chat.uploadFailed"));
+      setError(errorMessage(t, e, "chat.uploadFailed"));
     } finally {
       setUploading(false);
       if (fileInput.current) fileInput.current.value = "";
@@ -242,10 +231,16 @@ function Composer({ ownerId }: { ownerId: Id<"owners"> }) {
   }
 
   async function send() {
-    const t = text.trim();
-    if (!t) return;
+    const trimmed = text.trim();
+    if (!trimmed) return;
+    setError(null);
     setText("");
-    await sendMessage({ ownerId, text: t });
+    try {
+      await sendMessage({ text: trimmed });
+    } catch (e) {
+      setText(trimmed);
+      setError(errorMessage(t, e, "chat.sendFailed"));
+    }
   }
 
   return (
@@ -295,6 +290,9 @@ function Composer({ ownerId }: { ownerId: Id<"owners"> }) {
           <SendHorizontal />
         </Button>
       </form>
+      <p className="px-1 pt-1.5 text-[11px] leading-snug text-muted-foreground">
+        {t("privacy.notice")}
+      </p>
     </footer>
   );
 }

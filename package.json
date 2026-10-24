@@ -8,7 +8,6 @@
     "start": "next start",
     "lint": "eslint",
     "dev:backend": "convex dev",
-    "seed": "convex run owners:seedDemoOwner",
     "reset": "convex run admin:resetDemo",
     "test:fixtures": "tsx scripts/test-fixtures.ts",
     "typecheck": "tsc --noEmit"
@@ -17,8 +16,10 @@
     "@ai-sdk/anthropic": "4.0.15",
     "@ai-sdk/provider": "4.0.3",
     "@ai-sdk/provider-utils": "5.0.10",
+    "@auth/core": "0.41.1",
     "@base-ui/react": "1.9.0",
     "@convex-dev/agent": "0.7.8",
+    "@convex-dev/auth": "0.0.96",
     "ai": "7.0.28",
     "browser-image-compression": "2.0.2",
     "class-variance-authority": "0.7.1",
