@@ -21,9 +21,47 @@ export const DOC_TYPES = [
 const isoDate = (what: string) =>
   z.string().describe(`${what}, ISO format YYYY-MM-DD. Omit if not printed.`);
 
-// What we ask the model for. Differs from the stored shape in one place:
+// Inside `inspection` the model gets nullable fields instead of optional ones:
+// optional fields nested in an optional object push the schema past the API's
+// "Schema is too complex" limit. toStoredExtraction() turns the nulls back into
+// missing fields, so storage still matches StoredInspection.
+const nullableDate = (what: string) =>
+  z.string().nullable().describe(`${what}, ISO format YYYY-MM-DD. null if not printed.`);
+
+const modelInspectionSchema = z.object({
+  placardColor: z.enum(["green", "yellow", "red"]).nullable(),
+  score: z.number().nullable(),
+  inspectionDate: nullableDate("Inspection date"),
+  reinspectionDate: nullableDate("Reinspection date"),
+  violations: z.array(
+    z.object({
+      code: z.string().nullable(),
+      description: z.string(),
+      severity: z.enum(["major", "minor", "unknown"]),
+      correctedOnSite: z.boolean().nullable(),
+      points: z.number().nullable(),
+    }),
+  ),
+});
+
+type StoredInspection = {
+  placardColor?: "green" | "yellow" | "red";
+  score?: number;
+  inspectionDate?: string;
+  reinspectionDate?: string;
+  violations: {
+    code?: string;
+    description: string;
+    severity: "major" | "minor" | "unknown";
+    correctedOnSite?: boolean;
+    points?: number;
+  }[];
+};
+
+// What we ask the model for. Differs from the stored shape in two places:
 // fieldConfidence is a list here (structured output prefers fixed keys) and a
-// Record<string, number> in storage. See toStoredExtraction().
+// Record<string, number> in storage, and inspection uses nulls (see above).
+// See toStoredExtraction().
 const modelExtractionSchema = z.object({
   docType: z.enum(DOC_TYPES),
   issuer: z.object({
@@ -51,22 +89,7 @@ const modelExtractionSchema = z.object({
     .describe("Only methods the document itself mentions"),
   paymentInstructions: z.string().optional().describe("How the letter says to pay, briefly"),
   mainIssue: z.string().describe("One sentence, in English"),
-  inspection: z
-    .object({
-      placardColor: z.enum(["green", "yellow", "red"]).optional(),
-      score: z.number().optional(),
-      inspectionDate: isoDate("Inspection date").optional(),
-      reinspectionDate: isoDate("Reinspection date").optional(),
-      violations: z.array(
-        z.object({
-          code: z.string().optional(),
-          description: z.string(),
-          severity: z.enum(["major", "minor", "unknown"]),
-          correctedOnSite: z.boolean().optional(),
-          points: z.number().optional(),
-        }),
-      ),
-    })
+  inspection: modelInspectionSchema
     .optional()
     .describe("Only for COUNTY_HEALTH_INSPECTION"),
   identifiersMasked: z
@@ -82,8 +105,9 @@ const modelExtractionSchema = z.object({
 });
 
 type ModelExtraction = z.infer<typeof modelExtractionSchema>;
-export type Extraction = Omit<ModelExtraction, "fieldConfidence"> & {
+export type Extraction = Omit<ModelExtraction, "fieldConfidence" | "inspection"> & {
   fieldConfidence: Record<string, number>;
+  inspection?: StoredInspection;
 };
 
 // Below this, the agent asks for a clearer photo instead of explaining.
@@ -133,10 +157,23 @@ function maskDeep(value: unknown, path: string): unknown {
   return value;
 }
 
+function dropNulls(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(dropNulls);
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value)
+        .filter(([, v]) => v !== null)
+        .map(([k, v]) => [k, dropNulls(v)]),
+    );
+  }
+  return value;
+}
+
 function toStoredExtraction(raw: ModelExtraction): Extraction {
   const masked = maskDeep(raw, "") as ModelExtraction;
   return {
     ...masked,
+    inspection: masked.inspection && (dropNulls(masked.inspection) as StoredInspection),
     fieldConfidence: Object.fromEntries(
       masked.fieldConfidence.map((f) => [f.field, f.confidence]),
     ),
