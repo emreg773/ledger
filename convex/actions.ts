@@ -173,9 +173,14 @@ export const markDone = mutation({
   },
 });
 
+// Takes a string: the id comes from an `[action:<id>]` marker the model wrote,
+// and a malformed one should render nothing rather than crash the chat.
 export const get = query({
-  args: { actionId: v.id("actions") },
-  handler: async (ctx, { actionId }) => await ctx.db.get(actionId),
+  args: { actionId: v.string() },
+  handler: async (ctx, { actionId }) => {
+    const id = ctx.db.normalizeId("actions", actionId);
+    return id ? await ctx.db.get(id) : null;
+  },
 });
 
 export const listForCase = query({
