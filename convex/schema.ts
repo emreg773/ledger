@@ -197,6 +197,25 @@ export default defineSchema({
     .index("by_case", ["caseId"])
     .index("by_owner", ["ownerId"]),
 
+  // Step 2: mock Nessie bank (NESSIE_MODE=mock). Same shapes as the live API's
+  // accounts and bills, so the demo works when Nessie is down.
+  mockBankAccounts: defineTable({
+    customerId: v.string(),
+    accountId: v.string(),
+    nickname: v.string(),
+    balance: v.number(),
+    accountNumber: v.string(),
+  }).index("by_accountId", ["accountId"]),
+
+  mockBankBills: defineTable({
+    accountId: v.string(),
+    payee: v.string(),
+    nickname: v.string(), // the memo
+    paymentDate: v.string(), // ISO date
+    amount: v.number(),
+    status: v.string(), // "completed", like Nessie's bill status
+  }).index("by_accountId", ["accountId"]),
+
   // Append-only audit log. Never patch or delete rows here.
   events: defineTable({
     ownerId: v.id("owners"),

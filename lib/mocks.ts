@@ -30,6 +30,8 @@ const extraction972: Extraction = {
   },
   acceptedResponseMethods: ["mail", "phone"],
   paymentInstructions: "Sign the consent statement and mail it with your payment of $520.00.",
+  requestedPaymentMethods: ["check by mail"],
+  pressureTactics: [],
   mainIssue: "Proposed $520 penalty for four Forms 1099-NEC filed late.",
   identifiersMasked: ["EIN ending 6789"],
   documentLanguage: "en",

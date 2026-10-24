@@ -32,3 +32,41 @@ export const recentMessages = internalQuery({
     return page.map((m) => ({ role: m.role, status: m.status, text: m.text }));
   },
 });
+
+/** Everything a scenario test checks: cases, actions, events and the latest messages. */
+export const snapshot = internalQuery({
+  args: { messages: v.optional(v.number()) },
+  handler: async (ctx, { messages }) => {
+    const owner = await ctx.db.query("owners").first();
+    if (!owner) return null;
+    const cases = await ctx.db
+      .query("cases")
+      .withIndex("by_owner", (q) => q.eq("ownerId", owner._id))
+      .collect();
+    const documents = await ctx.db
+      .query("documents")
+      .withIndex("by_owner", (q) => q.eq("ownerId", owner._id))
+      .collect();
+    const actions = await ctx.db
+      .query("actions")
+      .withIndex("by_owner_and_status", (q) => q.eq("ownerId", owner._id))
+      .collect();
+    const events = await ctx.db
+      .query("events")
+      .withIndex("by_owner", (q) => q.eq("ownerId", owner._id))
+      .collect();
+    const { page } = await listUIMessages(ctx, components.agent, {
+      threadId: owner.agentThreadId,
+      paginationOpts: { numItems: messages ?? 6, cursor: null },
+    });
+    return {
+      ownerId: owner._id,
+      accountLast4: owner.accountLast4,
+      documents: documents.map((d) => ({ _id: d._id, status: d.status, caseId: d.caseId })),
+      cases,
+      actions,
+      events: events.map((e) => ({ type: e.type, summary: e.summary, at: e.at })),
+      messages: page.map((m) => ({ role: m.role, status: m.status, text: m.text })),
+    };
+  },
+});

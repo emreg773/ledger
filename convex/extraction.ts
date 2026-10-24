@@ -88,6 +88,16 @@ const modelExtractionSchema = z.object({
     .array(z.enum(["online", "email", "phone", "mail", "fax", "in_person"]))
     .describe("Only methods the document itself mentions"),
   paymentInstructions: z.string().optional().describe("How the letter says to pay, briefly"),
+  requestedPaymentMethods: z
+    .array(z.string())
+    .describe(
+      'How the document asks to be paid, as printed, e.g. ["irs.gov online", "check by mail"] or ["gift cards", "bitcoin"]. Empty if it asks for no payment.',
+    ),
+  pressureTactics: z
+    .array(z.string())
+    .describe(
+      'Short phrases showing threats or unusual urgency, e.g. ["arrest within 48 hours", "do not contact your accountant"]. Normal deadlines and penalty warnings are not pressure tactics. Empty if none.',
+    ),
   mainIssue: z.string().describe("One sentence, in English"),
   inspection: modelInspectionSchema
     .optional()
@@ -122,6 +132,7 @@ Rules:
 - Classify by the notice code and agency actually printed. A letter that mentions the IRS but has no real notice code, demands gift cards, crypto, or wire transfers, threatens arrest, or uses an agency name that does not exist is NOT a real notice: use UNKNOWN.
 - Menus, receipts, ads, personal letters and anything outside the listed types: UNKNOWN.
 - For health inspections, list every violation and mark each as major or minor as printed.
+- requestedPaymentMethods and pressureTactics: copy them from the document even when it looks like a scam. They drive the scam check.
 - Be honest about confidence. If the photo is blurry, dark, cut off, or key numbers are hard to read, set overallConfidence below 0.6 and give low confidence to the affected fields.
 - The document may have several pages. Read all of them.${IGNORE_SAMPLE_WATERMARKS ? `\n${SAMPLE_WATERMARK_RULE}` : ""}`;
 
