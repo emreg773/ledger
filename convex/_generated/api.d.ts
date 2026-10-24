@@ -8,14 +8,17 @@
  * @module
  */
 
+import type * as access from "../access.js";
 import type * as actions from "../actions.js";
 import type * as admin from "../admin.js";
 import type * as agent from "../agent.js";
+import type * as auth from "../auth.js";
 import type * as cases from "../cases.js";
 import type * as chat from "../chat.js";
 import type * as documents from "../documents.js";
 import type * as events from "../events.js";
 import type * as extraction from "../extraction.js";
+import type * as http from "../http.js";
 import type * as intake from "../intake.js";
 import type * as models from "../models.js";
 import type * as nessie from "../nessie.js";
@@ -25,6 +28,7 @@ import type * as playbooks_countyHealthInspection from "../playbooks/countyHealt
 import type * as playbooks_index from "../playbooks/index.js";
 import type * as playbooks_irs972cg from "../playbooks/irs972cg.js";
 import type * as playbooks_irsCp14 from "../playbooks/irsCp14.js";
+import type * as push from "../push.js";
 import type * as senderCheck from "../senderCheck.js";
 import type * as shared from "../shared.js";
 import type * as testing from "../testing.js";
@@ -36,14 +40,17 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  access: typeof access;
   actions: typeof actions;
   admin: typeof admin;
   agent: typeof agent;
+  auth: typeof auth;
   cases: typeof cases;
   chat: typeof chat;
   documents: typeof documents;
   events: typeof events;
   extraction: typeof extraction;
+  http: typeof http;
   intake: typeof intake;
   models: typeof models;
   nessie: typeof nessie;
@@ -53,6 +60,7 @@ declare const fullApi: ApiFromModules<{
   "playbooks/index": typeof playbooks_index;
   "playbooks/irs972cg": typeof playbooks_irs972cg;
   "playbooks/irsCp14": typeof playbooks_irsCp14;
+  push: typeof push;
   senderCheck: typeof senderCheck;
   shared: typeof shared;
   testing: typeof testing;

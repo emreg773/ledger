@@ -1,5 +1,6 @@
 import { v } from "convex/values";
-import { internalMutation, query, type MutationCtx } from "./_generated/server";
+import { internalMutation, internalQuery, query, type MutationCtx } from "./_generated/server";
+import { viewerOwner } from "./access";
 import type { Id } from "./_generated/dataModel";
 
 // Audit log helpers. Every meaningful step writes one readable row.
@@ -31,7 +32,8 @@ export const log = internalMutation({
   },
 });
 
-export const listForOwner = query({
+/** Debug helper: npx convex run events:listForOwner '{"ownerId": "..."}' */
+export const listForOwner = internalQuery({
   args: { ownerId: v.id("owners"), limit: v.optional(v.number()) },
   handler: async (ctx, { ownerId, limit }) => {
     return await ctx.db
@@ -44,12 +46,16 @@ export const listForOwner = query({
 
 /** Live activity for the UI: events newest first, optionally only those after sinceMs. */
 export const listRecentForOwner = query({
+  // TODO(step3): ownerId is ignored and goes away once Track B's UI stops sending it.
   args: {
-    ownerId: v.id("owners"),
+    ownerId: v.optional(v.id("owners")),
     sinceMs: v.optional(v.number()),
     limit: v.optional(v.number()),
   },
-  handler: async (ctx, { ownerId, sinceMs, limit }) => {
+  handler: async (ctx, { sinceMs, limit }) => {
+    const owner = await viewerOwner(ctx);
+    if (!owner) return [];
+    const ownerId = owner._id;
     const events = await ctx.db
       .query("events")
       .withIndex("by_owner", (q) =>

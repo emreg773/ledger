@@ -6,6 +6,7 @@ import type { Id } from "./_generated/dataModel";
 import { documentSource } from "./schema";
 import { logEvent } from "./events";
 import { documentMarker } from "./shared";
+import { requireOwner } from "./access";
 
 // Channel-agnostic document intake (brief Section 9).
 // Every channel calls ingest(): web upload now, Gmail in Step 4, WhatsApp in Step 5.
@@ -85,10 +86,14 @@ export const ingestDocument = internalMutation({
 
 /** Web upload. A thin public wrapper; all logic stays in ingest(). */
 export const ingestWebUpload = mutation({
+  // TODO(step3): ownerId is ignored and goes away once Track B's UI stops sending it.
   args: {
-    ownerId: v.id("owners"),
     storageId: v.id("_storage"),
     mimeType: v.string(),
+    ownerId: v.optional(v.id("owners")),
   },
-  handler: async (ctx, args) => await ingest(ctx, { ...args, source: "web_upload" }),
+  handler: async (ctx, { storageId, mimeType }) => {
+    const owner = await requireOwner(ctx);
+    return await ingest(ctx, { ownerId: owner._id, storageId, mimeType, source: "web_upload" });
+  },
 });

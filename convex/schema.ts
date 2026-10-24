@@ -1,5 +1,6 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
+import { authTables } from "@convex-dev/auth/server";
 
 // Full Ledger schema (all 8 steps). Tables marked "Step N" are unused until then.
 // Threads and messages live in the Agent component, not here.
@@ -86,7 +87,11 @@ export const caseBankCheck = v.object({
 });
 
 export default defineSchema({
+  // Step 3: Convex Auth (users, sessions, accounts, ...). One owner per user.
+  ...authTables,
+
   owners: defineTable({
+    userId: v.optional(v.id("users")), // TODO(step3): required once dev owners without it are wiped
     name: v.string(),
     businessName: v.string(),
     preferredLanguage: v.string(), // BCP-47, e.g. "es"
@@ -101,8 +106,20 @@ export default defineSchema({
     nessieAccountId: v.optional(v.string()),
     accountLast4: v.optional(v.string()),
   })
+    .index("by_userId", ["userId"])
     .index("by_email", ["email"])
     .index("by_whatsappNumber", ["whatsappNumber"]),
+
+  // Step 3: web push subscriptions, one row per browser/device.
+  pushSubscriptions: defineTable({
+    ownerId: v.id("owners"),
+    endpoint: v.string(),
+    keys: v.object({ p256dh: v.string(), auth: v.string() }),
+    userAgent: v.optional(v.string()),
+    createdAt: v.number(),
+  })
+    .index("by_owner", ["ownerId"])
+    .index("by_endpoint", ["endpoint"]),
 
   // Step 5
   staff: defineTable({

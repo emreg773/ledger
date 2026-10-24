@@ -1,8 +1,20 @@
 import { v } from "convex/values";
 import { listUIMessages } from "@convex-dev/agent";
 import { components } from "./_generated/api";
-import { internalAction, internalQuery } from "./_generated/server";
+import { internalAction, internalMutation, internalQuery, type QueryCtx } from "./_generated/server";
 import { extractFromStorage } from "./extraction";
+import { seedBankFor } from "./nessie";
+
+/** The owner with this email, or the newest owner when no email is given. */
+async function findOwner(ctx: QueryCtx, email?: string) {
+  if (email) {
+    return await ctx.db
+      .query("owners")
+      .withIndex("by_email", (q) => q.eq("email", email))
+      .first();
+  }
+  return await ctx.db.query("owners").order("desc").first();
+}
 
 // Test harness helpers. Internal only; call with `npx convex run`.
 
@@ -19,11 +31,11 @@ export const extractStorageId = internalAction({
   },
 });
 
-/** Latest messages in the demo owner's thread, oldest first. For checking agent replies. */
+/** Latest messages in an owner's thread (by email; default: the newest owner). */
 export const recentMessages = internalQuery({
-  args: { count: v.optional(v.number()) },
-  handler: async (ctx, { count }) => {
-    const owner = await ctx.db.query("owners").first();
+  args: { count: v.optional(v.number()), email: v.optional(v.string()) },
+  handler: async (ctx, { count, email }) => {
+    const owner = await findOwner(ctx, email);
     if (!owner) return [];
     const { page } = await listUIMessages(ctx, components.agent, {
       threadId: owner.agentThreadId,
@@ -33,11 +45,14 @@ export const recentMessages = internalQuery({
   },
 });
 
-/** Everything a scenario test checks: cases, actions, events and the latest messages. */
+/**
+ * An owner's cases, actions, events and latest messages in one call.
+ * npx convex run testing:snapshot '{"email": "you@gmail.com"}' (default: the newest owner)
+ */
 export const snapshot = internalQuery({
-  args: { messages: v.optional(v.number()) },
-  handler: async (ctx, { messages }) => {
-    const owner = await ctx.db.query("owners").first();
+  args: { messages: v.optional(v.number()), email: v.optional(v.string()) },
+  handler: async (ctx, { messages, email }) => {
+    const owner = await findOwner(ctx, email);
     if (!owner) return null;
     const cases = await ctx.db
       .query("cases")
@@ -68,5 +83,20 @@ export const snapshot = internalQuery({
       events: events.map((e) => ({ type: e.type, summary: e.summary, at: e.at })),
       messages: page.map((m) => ({ role: m.role, status: m.status, text: m.text })),
     };
+  },
+});
+
+/**
+ * Reseeds an owner's sandbox bank. With withoutTreasuryPayment, the Oct 2 IRS
+ * payment is left out, so the CP14 proposes pay_bill.
+ * npx convex run testing:reseedBank '{"email": "you@gmail.com", "withoutTreasuryPayment": true}'
+ */
+export const reseedBank = internalMutation({
+  args: { email: v.optional(v.string()), withoutTreasuryPayment: v.optional(v.boolean()) },
+  handler: async (ctx, { email, withoutTreasuryPayment }) => {
+    const owner = await findOwner(ctx, email);
+    if (!owner) throw new Error("No owner found");
+    await seedBankFor(ctx, owner._id, { withoutTreasuryPayment });
+    return owner._id;
   },
 });
