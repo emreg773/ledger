@@ -1,20 +1,28 @@
 import { v } from "convex/values";
 import { internalMutation, internalQuery, query } from "./_generated/server";
+import { viewerOwner } from "./access";
 
-// Case reads for the UI (Step 2 contract, Section 8).
+// Case reads for the UI. Only the signed-in owner's cases; anything else is null.
 
 export const get = query({
   args: { caseId: v.id("cases") },
-  handler: async (ctx, { caseId }) => await ctx.db.get(caseId),
+  handler: async (ctx, { caseId }) => {
+    const owner = await viewerOwner(ctx);
+    const c = await ctx.db.get(caseId);
+    return owner && c?.ownerId === owner._id ? c : null;
+  },
 });
 
 /** The owner's cases, newest first. */
 export const listForOwner = query({
-  args: { ownerId: v.id("owners") },
-  handler: async (ctx, { ownerId }) => {
+  // TODO(step3): ownerId is ignored and goes away once Track B's UI stops sending it.
+  args: { ownerId: v.optional(v.id("owners")) },
+  handler: async (ctx) => {
+    const owner = await viewerOwner(ctx);
+    if (!owner) return [];
     return await ctx.db
       .query("cases")
-      .withIndex("by_owner", (q) => q.eq("ownerId", ownerId))
+      .withIndex("by_owner", (q) => q.eq("ownerId", owner._id))
       .order("desc")
       .take(50);
   },
