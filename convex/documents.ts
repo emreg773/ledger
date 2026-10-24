@@ -84,21 +84,45 @@ export const saveExtraction = internalMutation({
       return { caseId: null };
     }
 
+    const title = CASE_TITLES[extraction.docType] ?? extraction.docType;
+    const caseFields = {
+      docType: extraction.docType,
+      title,
+      amountDue: extraction.amountDue,
+      deadline: extraction.deadline,
+    };
+
+    // Idempotent: re-reading a document updates its case instead of opening a second one.
+    const existing = await ctx.db
+      .query("cases")
+      .withIndex("by_document", (q) => q.eq("documentId", doc._id))
+      .first();
+    if (existing) {
+      await ctx.db.patch(existing._id, caseFields);
+      await ctx.db.patch(doc._id, { caseId: existing._id });
+      await logEvent(ctx, {
+        ownerId: doc.ownerId,
+        caseId: existing._id,
+        type: "case_updated",
+        summary: `Updated case from a re-read: ${title}`,
+        data: { documentId: doc._id },
+      });
+      return { caseId: existing._id };
+    }
+
     const caseId = await ctx.db.insert("cases", {
       ownerId: doc.ownerId,
       documentId: doc._id,
-      docType: extraction.docType,
-      title: CASE_TITLES[extraction.docType] ?? extraction.docType,
-      amountDue: extraction.amountDue,
-      deadline: extraction.deadline,
+      ...caseFields,
       status: "open",
       createdAt: Date.now(),
     });
+    await ctx.db.patch(doc._id, { caseId });
     await logEvent(ctx, {
       ownerId: doc.ownerId,
       caseId,
       type: "case_opened",
-      summary: `Opened case: ${CASE_TITLES[extraction.docType] ?? extraction.docType}`,
+      summary: `Opened case: ${title}`,
       data: { documentId: doc._id },
     });
     return { caseId };
