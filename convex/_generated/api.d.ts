@@ -24,6 +24,7 @@ import type * as intake from "../intake.js";
 import type * as limits from "../limits.js";
 import type * as models from "../models.js";
 import type * as nessie from "../nessie.js";
+import type * as notifications from "../notifications.js";
 import type * as officialContacts from "../officialContacts.js";
 import type * as owners from "../owners.js";
 import type * as playbooks_countyHealthInspection from "../playbooks/countyHealthInspection.js";
@@ -59,6 +60,7 @@ declare const fullApi: ApiFromModules<{
   limits: typeof limits;
   models: typeof models;
   nessie: typeof nessie;
+  notifications: typeof notifications;
   officialContacts: typeof officialContacts;
   owners: typeof owners;
   "playbooks/countyHealthInspection": typeof playbooks_countyHealthInspection;
