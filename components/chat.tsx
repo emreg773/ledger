@@ -19,6 +19,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { DocumentCard } from "@/components/document-card";
+import { ActionCard } from "@/components/action-card";
+import { ActivitySummary, LiveActivity, activitySteps } from "@/components/activity";
+import { I18nProvider, useI18n } from "@/lib/i18n";
+import { splitReply } from "@/lib/markers";
+import type { RecentEvent } from "@/lib/contract";
 
 const MAX_BYTES = 10 * 1024 * 1024;
 
@@ -35,14 +40,19 @@ export function Chat() {
   if (owner === null) {
     return (
       <div className="m-auto max-w-sm p-6 text-center text-sm">
-        No owner yet. Run <code className="rounded bg-muted px-1">npx convex run owners:seedDemoOwner</code>
+        No owner yet. Run <code className="rounded bg-muted px-1">npm run seed</code>
       </div>
     );
   }
-  return <OwnerChat owner={owner} />;
+  return (
+    <I18nProvider language={owner.preferredLanguage}>
+      <OwnerChat owner={owner} />
+    </I18nProvider>
+  );
 }
 
 function OwnerChat({ owner }: { owner: Doc<"owners"> }) {
+  const { t } = useI18n();
   const { results: messages } = useUIMessages(
     api.chat.listThreadMessages,
     { threadId: owner.agentThreadId },
@@ -50,6 +60,8 @@ function OwnerChat({ owner }: { owner: Doc<"owners"> }) {
   );
   const documents = useQuery(api.documents.listForOwner, { ownerId: owner._id });
   const docsById = new Map((documents ?? []).map((d) => [d._id as string, d]));
+  // TODO: after Track A's PR, use events.listRecentForOwner({ ownerId, sinceMs }).
+  const events: RecentEvent[] = useQuery(api.events.listForOwner, { ownerId: owner._id, limit: 100 }) ?? [];
 
   // Messages to show: user messages, and assistant messages that have text.
   // Tool calls and results are hidden; the document card shows what was read.
@@ -64,6 +76,13 @@ function OwnerChat({ owner }: { owner: Doc<"owners"> }) {
     messages.some((m) => m.status === "pending" || m.status === "streaming") ||
     visible.at(-1)?.role === "user";
 
+  // Steps since the owner's latest message or document.
+  const lastUserAt = visible.findLast((m) => m.role === "user")?._creationTime ?? 0;
+  const liveSteps = activitySteps(events.filter((e) => e.at >= lastUserAt));
+  // Steps between one user message and the next, shown under that window's last reply.
+  const stepsBetween = (from: number, to: number) =>
+    activitySteps(events.filter((e) => e.at >= from && e.at < to));
+
   const bottomRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -76,10 +95,10 @@ function OwnerChat({ owner }: { owner: Doc<"owners"> }) {
       <main className="flex-1 space-y-3 overflow-y-auto px-3 py-4">
         {visible.length === 0 && (
           <p className="mt-10 text-center text-sm text-muted-foreground">
-            Take a photo of any letter from the government. Ledger will read it for you.
+            {t("chat.empty")}
           </p>
         )}
-        {visible.map((m) => {
+        {visible.map((m, i) => {
           const docId = m.role === "user" ? m.text.match(DOCUMENT_MARKER)?.[1] : undefined;
           if (docId) {
             return (
@@ -95,18 +114,32 @@ function OwnerChat({ owner }: { owner: Doc<"owners"> }) {
               </div>
             </div>
           ) : (
-            <div key={m.key} className="flex justify-start">
-              <div className="prose prose-sm max-w-[85%] rounded-2xl rounded-bl-sm bg-muted px-3 py-2 text-sm [&_p]:my-1 [&_ul]:my-1 [&_ul]:list-disc [&_ul]:pl-4">
-                <ReactMarkdown>{m.text}</ReactMarkdown>
-              </div>
+            <div key={m.key} className="flex flex-col items-start gap-2">
+              {splitReply(m.text).map((part, j) =>
+                part.kind === "action" ? (
+                  <ActionCard key={j} actionId={part.actionId} />
+                ) : (
+                  <div
+                    key={j}
+                    className="prose prose-sm max-w-[85%] rounded-2xl rounded-bl-sm bg-muted px-3 py-2 text-sm [&_p]:my-1 [&_ul]:my-1 [&_ul]:list-disc [&_ul]:pl-4"
+                  >
+                    <ReactMarkdown>{part.text}</ReactMarkdown>
+                  </div>
+                ),
+              )}
+              {/* Last reply before the next owner message: show what Ledger did. */}
+              {visible[i + 1]?.role !== "assistant" && !(working && i === visible.length - 1) && (
+                <ActivitySummary
+                  steps={stepsBetween(
+                    visible.slice(0, i).findLast((v) => v.role === "user")?._creationTime ?? 0,
+                    visible[i + 1]?._creationTime ?? Infinity,
+                  )}
+                />
+              )}
             </div>
           );
         })}
-        {working && (
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <Loader2 className="size-3 animate-spin" /> Ledger is working...
-          </div>
-        )}
+        {working && <LiveActivity steps={liveSteps} />}
         <div ref={bottomRef} />
       </main>
 
@@ -116,6 +149,7 @@ function OwnerChat({ owner }: { owner: Doc<"owners"> }) {
 }
 
 function Header({ owner }: { owner: Doc<"owners"> }) {
+  const { t } = useI18n();
   const setLanguage = useMutation(api.owners.setLanguage);
   return (
     <header className="flex items-center justify-between gap-2 border-b px-3 py-2">
@@ -129,7 +163,7 @@ function Header({ owner }: { owner: Doc<"owners"> }) {
           if (language) void setLanguage({ ownerId: owner._id, language });
         }}
       >
-        <SelectTrigger className="w-36" aria-label="Language">
+        <SelectTrigger className="w-36" aria-label={t("chat.language")}>
           <SelectValue>
             {(code: string) => LANGUAGES.find((l) => l.code === code)?.label ?? code}
           </SelectValue>
@@ -147,6 +181,7 @@ function Header({ owner }: { owner: Doc<"owners"> }) {
 }
 
 function Composer({ ownerId }: { ownerId: Id<"owners"> }) {
+  const { t } = useI18n();
   const generateUploadUrl = useMutation(api.documents.generateUploadUrl);
   const ingestWebUpload = useMutation(api.intake.ingestWebUpload);
   const sendMessage = useMutation(api.chat.sendMessage);
@@ -159,7 +194,7 @@ function Composer({ ownerId }: { ownerId: Id<"owners"> }) {
     setError(null);
     const isPdf = original.type === "application/pdf";
     if (!isPdf && !original.type.startsWith("image/")) {
-      setError("Please choose a photo or a PDF.");
+      setError(t("chat.uploadNotPhoto"));
       return;
     }
     setUploading(true);
@@ -175,7 +210,7 @@ function Composer({ ownerId }: { ownerId: Id<"owners"> }) {
             useWebWorker: true,
           });
       if (file.size > MAX_BYTES) {
-        setError("That file is bigger than 10 MB.");
+        setError(t("chat.uploadTooBig"));
         return;
       }
       const url = await generateUploadUrl();
@@ -188,7 +223,8 @@ function Composer({ ownerId }: { ownerId: Id<"owners"> }) {
       const { storageId } = (await res.json()) as { storageId: Id<"_storage"> };
       await ingestWebUpload({ ownerId, storageId, mimeType: file.type });
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Upload failed");
+      console.error(e);
+      setError(t("chat.uploadFailed"));
     } finally {
       setUploading(false);
       if (fileInput.current) fileInput.current.value = "";
@@ -226,7 +262,7 @@ function Composer({ ownerId }: { ownerId: Id<"owners"> }) {
           type="button"
           variant="outline"
           size="icon"
-          aria-label="Upload a photo or PDF"
+          aria-label={t("chat.upload")}
           disabled={uploading}
           onClick={() => fileInput.current?.click()}
         >
@@ -242,10 +278,10 @@ function Composer({ ownerId }: { ownerId: Id<"owners"> }) {
             }
           }}
           rows={1}
-          placeholder="Message Ledger"
+          placeholder={t("chat.placeholder")}
           className="max-h-32 min-h-9 flex-1 resize-none"
         />
-        <Button type="submit" size="icon" aria-label="Send" disabled={!text.trim()}>
+        <Button type="submit" size="icon" aria-label={t("chat.send")} disabled={!text.trim()}>
           <SendHorizontal />
         </Button>
       </form>
