@@ -1,36 +1,63 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Ledger
 
-## Getting Started
+A multilingual AI agent for immigrant small business owners. Snap a photo of a government letter; Ledger reads it, explains it in your language, and does the follow-up work. Built at Cal Hacks 13.0.
 
-First, run the development server:
+Current status: **Step 1 of 8** (document intake, `read_document`, web chat). See [docs/ledger-step1.md](docs/ledger-step1.md) for the brief and [STEP1_REPORT.md](STEP1_REPORT.md) for what's built.
+
+## Stack
+
+Next.js 16 (App Router) + Tailwind 4 + shadcn/ui · Convex (DB, storage, scheduler) · `@convex-dev/agent` · Vercel AI SDK 7 + Anthropic (`claude-sonnet-5-5`)
+
+## Setup
+
+Requires Node 22+.
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+npx convex dev            # first run: log in, create/select the "ledger" project; keep it running
+npx convex env set ANTHROPIC_API_KEY sk-ant-...   # once per deployment
+npm run seed              # creates the demo owner (María López, Taquería La Esquina)
+npm run dev               # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Each teammate gets their own Convex **dev** deployment inside the shared project, so data and API keys don't collide. Set the API key on yours.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Testing
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run test:fixtures             # all fixtures (needs `npx convex dev` running)
+npm run test:fixtures -- cp14     # only files matching "cp14"
+npx convex run testing:extractStorageId '{"storageId":"...","mimeType":"image/jpeg"}'
+npx convex run testing:recentMessages     # latest agent replies
+```
 
-## Learn More
+Intake without the UI (how Gmail/WhatsApp will call it):
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+npx convex run intake:ingestDocument '{"ownerId":"...","storageId":"...","mimeType":"image/jpeg","source":"web_upload"}'
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Layout
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```
+convex/
+  schema.ts        all tables for Steps 1-8
+  intake.ts        ingestDocument: the one entry point for every channel
+  agent.ts         Ledger agent, instructions, read_document tool, respond action
+  extraction.ts    zod extraction schema, prompt, masking, model call
+  documents.ts     document rows, extraction save, case creation
+  owners.ts        demo owner seed, language
+  chat.ts          message list + text send for the UI
+  events.ts        append-only audit log
+  testing.ts       harness helpers (internal)
+  shared.ts        constants shared with the frontend (no server imports)
+components/chat.tsx, components/document-card.tsx   the one-page UI
+scripts/test-fixtures.ts                            fixture pass/fail harness
+fixtures/                                           fake sample documents + expected values
+```
 
-## Deploy on Vercel
+## Git workflow
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- `main` is always demo-able. Work on a branch (`step2-playbooks`, `fix-upload`), open a PR, merge when it runs.
+- Pull often; Convex schema changes affect both of us.
+- Never commit keys. `.env.local` is gitignored; secrets go in `npx convex env set`.

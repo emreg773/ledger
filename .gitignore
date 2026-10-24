@@ -46,3 +46,6 @@ next-env.d.ts
 
 # fixtures ship unzipped in fixtures/; the zip itself is redundant
 ledger-fixtures.zip
+
+# fixture harness output
+/test-results
