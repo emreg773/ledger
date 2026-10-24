@@ -38,7 +38,7 @@ After reading a document, Ledger investigates (Track A), explains, and **propose
 ## 2. Pre-step tasks
 
 1. **Stub `convex/actions.ts` first (about 20 minutes).** Write every Track B contract function (Section 8) with its exact name and arguments, returning placeholders. Track A's agent tool calls `internal.actions.propose`, so merge this small PR before anything else.
-2. **Pull Track A's schema PR** when it lands. It adds `cases.verification`, `cases.bankCheck`, `documents.caseId`, and the `owner_task` action type. Then use the **shared Convex cloud dev deployment** described in `docs/dev-setup.md`.
+2. **Don't wait for Track A's schema PR.** Stub against the current schema; the `actions` table already exists. Add a `// TODO: owner_task after schema PR` where needed, and never edit `schema.ts`. Use your own Convex dev deployment (each developer has their own in the shared project; see `docs/dev-setup.md` once it lands). When the schema PR merges, pull and remove the TODOs. It adds `cases.verification`, `cases.bankCheck`, `documents.caseId`, and the `owner_task` action type.
 3. **Google OAuth setup for Step 3.** Your developer does this by hand in the Google Cloud console; you write the checklist and the notes in `docs/google-oauth-setup.md`:
    1. Create a Google Cloud project and enable the **Gmail API**.
    2. Set up the OAuth consent screen: External, **Testing** mode. Add the team's demo Gmail account as a test user.
@@ -164,7 +164,7 @@ Don't edit `convex/schema.ts` or any other Track A file (`agent.ts`, `extraction
 
 ## 11. Acceptance criteria
 
-- [ ] All `test:scenarios` pass on the shared dev deployment
+- [ ] All `test:scenarios` pass on your dev deployment after both tracks are merged
 - [ ] The 972CG demo works in the UI at 390 px: live steps, Approve → confirm dialog → "Paying…" → "Paid ✓", then a Spanish confirmation
 - [ ] Server rules hold: a direct `approve` on an `owner_task` or on an already-executed action throws, and double taps make one payment
 - [ ] The CP14 card shows "Verified" and "Already paid on Oct 2", and the `owner_task` card shows a copyable call script and a tap-to-call link
