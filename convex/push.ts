@@ -133,18 +133,28 @@ export const deleteSubscription = internalMutation({
 // Apple's servers and show on lock screens.
 
 export type PushKind = Infer<typeof pushKind>;
-export type Lang = "en" | "es" | "tr";
+export type Lang = "en" | "es" | "zh" | "vi" | "ko";
+const PUSH_LANGS: readonly string[] = ["en", "es", "zh", "vi", "ko"];
 
-const MONTHS: Record<Lang, string[]> = {
-  en: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
-  es: ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"],
-  tr: ["Oca", "Şub", "Mar", "Nis", "May", "Haz", "Tem", "Ağu", "Eyl", "Eki", "Kas", "Ara"],
-};
+const MONTHS_EN = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const MONTHS_ES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
 
-function shortDate(iso: string, lang: Lang): string {
+/** "Nov 2", "2 nov", "11月2日", "2 thg 11", "11월 2일". */
+export function shortDate(iso: string, lang: Lang): string {
   const [, m, d] = iso.split("-").map(Number);
   if (!m || !d) return iso;
-  return lang === "en" ? `${MONTHS.en[m - 1]} ${d}` : `${d} ${MONTHS[lang][m - 1]}`;
+  switch (lang) {
+    case "en":
+      return `${MONTHS_EN[m - 1]} ${d}`;
+    case "es":
+      return `${d} ${MONTHS_ES[m - 1]}`;
+    case "zh":
+      return `${m}月${d}日`;
+    case "vi":
+      return `${d} thg ${m}`;
+    case "ko":
+      return `${m}월 ${d}일`;
+  }
 }
 
 const usd = (n: number) => n.toLocaleString("en-US", { style: "currency", currency: "USD" });
@@ -155,25 +165,33 @@ function docName(c: Doc<"cases"> | null, lang: Lang): string {
   return {
     en: isIrs ? "IRS letter" : isInspection ? "health inspection" : "letter",
     es: isIrs ? "carta del IRS" : isInspection ? "inspección de salud" : "carta",
-    tr: isIrs ? "IRS mektubunuzu" : isInspection ? "sağlık denetiminizi" : "mektubunuzu",
+    zh: isIrs ? "IRS 来信" : isInspection ? "卫生检查报告" : "来信",
+    vi: isIrs ? "thư của IRS" : isInspection ? "biên bản kiểm tra vệ sinh" : "thư",
+    ko: isIrs ? "IRS 편지" : isInspection ? "위생 점검 보고서" : "편지",
   }[lang];
 }
 
 /** "Ledger read your IRS letter: it's already paid", or with the amount and deadline. */
 function readLine(c: Doc<"cases"> | null, lang: Lang): string {
   const name = docName(c, lang);
-  const lead = { en: `Ledger read your ${name}`, es: `Ledger leyó su ${name}`, tr: `Ledger ${name} okudu` }[lang];
+  const lead = {
+    en: `Ledger read your ${name}`,
+    es: `Ledger leyó su ${name}`,
+    zh: `Ledger 已读取您的${name}`,
+    vi: `Ledger đã đọc ${name} của bạn`,
+    ko: `Ledger가 ${name}을(를) 읽었습니다`,
+  }[lang];
   if (c?.verification?.verdict === "suspicious") {
-    return `${lead}: ${{ en: "it looks like a scam. Don't pay.", es: "parece una estafa. No pague.", tr: "dolandırıcılık gibi görünüyor. Ödeme yapmayın." }[lang]}`;
+    return `${lead}: ${{ en: "it looks like a scam. Don't pay.", es: "parece una estafa. No pague.", zh: "这看起来是诈骗，请不要付款。", vi: "có vẻ là lừa đảo. Đừng thanh toán.", ko: "사기로 보입니다. 돈을 내지 마세요." }[lang]}`;
   }
   if (c?.bankCheck && c.bankCheck.matches.length > 0) {
-    return `${lead}: ${{ en: "it's already paid", es: "ya está pagada", tr: "zaten ödenmiş" }[lang]}`;
+    return `${lead}: ${{ en: "it's already paid", es: "ya está pagada", zh: "已经付过了", vi: "đã được thanh toán rồi", ko: "이미 납부되었습니다" }[lang]}`;
   }
   const facts: string[] = [];
   if (c?.amountDue !== undefined) facts.push(usd(c.amountDue));
   if (c?.deadline) {
     const date = shortDate(c.deadline, lang);
-    facts.push({ en: `due ${date}`, es: `vence el ${date}`, tr: `son gün ${date}` }[lang]);
+    facts.push({ en: `due ${date}`, es: `vence el ${date}`, zh: `${date}到期`, vi: `hạn ${date}`, ko: `마감 ${date}` }[lang]);
   }
   return facts.length > 0 ? `${lead}: ${facts.join(", ")}` : lead;
 }
@@ -188,7 +206,7 @@ function message(
     case "document_read":
       return { body: readLine(c, lang), summary: readLine(c, "en") };
     case "action_needed": {
-      const next = { en: "Tap to review the next step.", es: "Toque para revisar el siguiente paso.", tr: "Sonraki adımı görmek için dokunun." }[lang];
+      const next = { en: "Tap to review the next step.", es: "Toque para revisar el siguiente paso.", zh: "点按查看下一步。", vi: "Nhấn để xem bước tiếp theo.", ko: "눌러서 다음 단계를 확인하세요." }[lang];
       return { body: `${readLine(c, lang)}. ${next}`, summary: `${readLine(c, "en")} (action needed)` };
     }
     case "action_done": {
@@ -197,7 +215,9 @@ function message(
         const body = {
           en: `Paid ${usd(r.amount)} from the account ending ${r.accountLast4}.`,
           es: `Pagado: ${usd(r.amount)} de la cuenta que termina en ${r.accountLast4}.`,
-          tr: `${usd(r.amount)}, sonu ${r.accountLast4} ile biten hesaptan ödendi.`,
+          zh: `已从尾号 ${r.accountLast4} 的账户支付 ${usd(r.amount)}。`,
+          vi: `Đã thanh toán ${usd(r.amount)} từ tài khoản có đuôi ${r.accountLast4}.`,
+          ko: `끝자리 ${r.accountLast4} 계좌에서 ${usd(r.amount)}을(를) 납부했습니다.`,
         }[lang];
         return { body, summary: `Paid ${usd(r.amount)} from account ending ${r.accountLast4}` };
       }
@@ -205,30 +225,34 @@ function message(
         const body = {
           en: "Something didn't go through. Nothing was paid. Tap to see.",
           es: "Algo no se completó. No se pagó nada. Toque para ver.",
-          tr: "Bir işlem tamamlanamadı. Hiçbir ödeme yapılmadı. Görmek için dokunun.",
+          zh: "有一项操作未成功，没有付款。点按查看。",
+          vi: "Có việc chưa thực hiện được. Chưa có khoản nào được thanh toán. Nhấn để xem.",
+          ko: "처리되지 않은 작업이 있습니다. 납부된 금액은 없습니다. 눌러서 확인하세요.",
         }[lang];
         return { body, summary: "Action failed" };
       }
-      const body = { en: "Done. Tap to see what's next.", es: "Listo. Toque para ver qué sigue.", tr: "Tamamlandı. Sırada ne olduğunu görmek için dokunun." }[lang];
+      const body = { en: "Done. Tap to see what's next.", es: "Listo. Toque para ver qué sigue.", zh: "已完成。点按查看接下来要做什么。", vi: "Xong. Nhấn để xem việc tiếp theo.", ko: "완료되었습니다. 눌러서 다음 할 일을 확인하세요." }[lang];
       return { body, summary: "Action done" };
     }
     case "document_failed": {
       const body = {
         en: "Ledger couldn't read your document. Try a clearer photo.",
         es: "Ledger no pudo leer su documento. Intente con una foto más clara.",
-        tr: "Ledger belgenizi okuyamadı. Daha net bir fotoğraf deneyin.",
+        zh: "Ledger 无法读取您的文件，请换一张更清晰的照片。",
+        vi: "Ledger không đọc được tài liệu của bạn. Hãy thử ảnh rõ hơn.",
+        ko: "Ledger가 문서를 읽지 못했습니다. 더 선명한 사진으로 다시 시도해 주세요.",
       }[lang];
       return { body, summary: "Could not read the document" };
     }
     case "test": {
-      const body = { en: "Notifications are on.", es: "Las notificaciones están activadas.", tr: "Bildirimler açık." }[lang];
+      const body = { en: "Notifications are on.", es: "Las notificaciones están activadas.", zh: "通知已开启。", vi: "Thông báo đã bật.", ko: "알림이 켜졌습니다." }[lang];
       return { body, summary: "Test notification" };
     }
     case "deadline_reminder":
     case "weekly_roundup":
     case "nudge": {
       // Callers pass their own text; this is only the fallback.
-      const body = { en: "You have an update in Ledger.", es: "Tiene una novedad en Ledger.", tr: "Ledger'da bir güncellemeniz var." }[lang];
+      const body = { en: "You have an update in Ledger.", es: "Tiene una novedad en Ledger.", zh: "Ledger 有新消息。", vi: "Bạn có cập nhật mới trong Ledger.", ko: "Ledger에 새 소식이 있습니다." }[lang];
       return { body, summary: kind };
     }
   }
@@ -246,26 +270,26 @@ function heading(
   const pick = (category: Category, t: Record<Lang, string>) => ({ category, title: t[lang], titleEn: t.en });
   switch (kind) {
     case "action_needed":
-      return pick("needs_action", { en: "Action needed", es: "Necesita su decisión", tr: "Kararınız gerekiyor" });
+      return pick("needs_action", { en: "Action needed", es: "Necesita su decisión", zh: "需要您处理", vi: "Cần bạn xử lý", ko: "확인이 필요합니다" });
     case "document_failed":
-      return pick("alert", { en: "Couldn't read your document", es: "No se pudo leer su documento", tr: "Belgeniz okunamadı" });
+      return pick("alert", { en: "Couldn't read your document", es: "No se pudo leer su documento", zh: "无法读取您的文件", vi: "Không đọc được tài liệu", ko: "문서를 읽지 못했습니다" });
     case "document_read":
       return c?.verification?.verdict === "suspicious"
-        ? pick("alert", { en: "Possible scam", es: "Posible estafa", tr: "Olası dolandırıcılık" })
-        : pick("letter", { en: "Letter read", es: "Carta leída", tr: "Mektup okundu" });
+        ? pick("alert", { en: "Possible scam", es: "Posible estafa", zh: "可能是诈骗", vi: "Có thể là lừa đảo", ko: "사기 의심" })
+        : pick("letter", { en: "Letter read", es: "Carta leída", zh: "信件已读取", vi: "Đã đọc thư", ko: "편지를 읽었습니다" });
     case "action_done":
       if (action?.status === "failed") {
-        return pick("alert", { en: "Didn't go through", es: "No se completó", tr: "Tamamlanamadı" });
+        return pick("alert", { en: "Didn't go through", es: "No se completó", zh: "未成功", vi: "Không thành công", ko: "처리되지 않음" });
       }
       return action?.type === "pay_bill"
-        ? pick("done", { en: "Payment made", es: "Pago realizado", tr: "Ödeme yapıldı" })
-        : pick("done", { en: "Done", es: "Listo", tr: "Tamamlandı" });
+        ? pick("done", { en: "Payment made", es: "Pago realizado", zh: "已付款", vi: "Đã thanh toán", ko: "납부 완료" })
+        : pick("done", { en: "Done", es: "Listo", zh: "已完成", vi: "Đã xong", ko: "완료" });
     case "deadline_reminder":
-      return pick("reminder", { en: "Reminder", es: "Recordatorio", tr: "Hatırlatma" });
+      return pick("reminder", { en: "Reminder", es: "Recordatorio", zh: "提醒", vi: "Lời nhắc", ko: "알림" });
     case "weekly_roundup":
-      return pick("reminder", { en: "Your week", es: "Su semana", tr: "Haftanız" });
+      return pick("reminder", { en: "Your week", es: "Su semana", zh: "本周概览", vi: "Tuần của bạn", ko: "이번 주" });
     case "nudge":
-      return pick("reminder", { en: "Don't forget", es: "No lo olvide", tr: "Unutmayın" });
+      return pick("reminder", { en: "Don't forget", es: "No lo olvide", zh: "别忘了", vi: "Đừng quên", ko: "잊지 마세요" });
   }
 }
 
@@ -281,7 +305,7 @@ export type QueuePushOptions = {
 };
 
 export function ownerLang(owner: Doc<"owners">): Lang {
-  return owner.preferredLanguage === "es" || owner.preferredLanguage === "tr" ? owner.preferredLanguage : "en";
+  return PUSH_LANGS.includes(owner.preferredLanguage) ? (owner.preferredLanguage as Lang) : "en";
 }
 
 /** Records a notification for the notification center and pushes it to the owner's devices. */
@@ -351,21 +375,25 @@ export const notifyEmail = internalMutation({
   handler: async (ctx, { ownerId, kind, fromDomain }) => {
     const owner = await ctx.db.get(ownerId);
     if (!owner) return null;
-    const lang: Lang = owner.preferredLanguage === "es" || owner.preferredLanguage === "tr" ? owner.preferredLanguage : "en";
+    const lang = ownerLang(owner);
     const gov = kind === "email_government";
     const titles = gov
-      ? { en: "Email from an agency", es: "Correo de una agencia", tr: "Kurumdan e-posta" }
-      : { en: "Suspicious email", es: "Correo sospechoso", tr: "Şüpheli e-posta" };
+      ? { en: "Email from an agency", es: "Correo de una agencia", zh: "政府机构来信", vi: "Email từ cơ quan", ko: "기관에서 온 이메일" }
+      : { en: "Suspicious email", es: "Correo sospechoso", zh: "可疑邮件", vi: "Email đáng ngờ", ko: "의심스러운 이메일" };
     const bodies = gov
       ? {
           en: `An email from ${fromDomain} is at the top of your inbox in Ledger.`,
           es: `Un correo de ${fromDomain} está primero en su bandeja de Ledger.`,
-          tr: `${fromDomain} adresinden gelen bir e-posta Ledger'daki gelen kutunuzun en üstünde.`,
+          zh: `来自 ${fromDomain} 的邮件已排在您 Ledger 收件箱的最前面。`,
+          vi: `Một email từ ${fromDomain} đang ở đầu hộp thư của bạn trong Ledger.`,
+          ko: `${fromDomain}에서 온 이메일이 Ledger 받은편지함 맨 위에 있습니다.`,
         }
       : {
           en: `An email from ${fromDomain} pretends to be from an agency. Don't pay or click its links.`,
           es: `Un correo de ${fromDomain} se hace pasar por una agencia. No pague ni abra sus enlaces.`,
-          tr: `${fromDomain} adresinden gelen bir e-posta kendini kurum gibi gösteriyor. Ödeme yapmayın, linklerine tıklamayın.`,
+          zh: `来自 ${fromDomain} 的邮件冒充政府机构。不要付款，也不要点击其中的链接。`,
+          vi: `Một email từ ${fromDomain} giả danh cơ quan chính phủ. Đừng thanh toán hay bấm vào các liên kết trong đó.`,
+          ko: `${fromDomain}에서 온 이메일이 기관을 사칭하고 있습니다. 돈을 내거나 링크를 누르지 마세요.`,
         };
     const summary = gov ? `Email from ${fromDomain} (government)` : `Suspicious email from ${fromDomain}`;
     await ctx.db.insert("notifications", {

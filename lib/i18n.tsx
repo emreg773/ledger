@@ -3,7 +3,9 @@
 import { createContext, useContext, useMemo } from "react";
 import en from "@/messages/en.json";
 import es from "@/messages/es.json";
-import tr from "@/messages/tr.json";
+import zh from "@/messages/zh.json";
+import vi from "@/messages/vi.json";
+import ko from "@/messages/ko.json";
 
 // UI strings, driven by owners.preferredLanguage. English is the fallback for
 // missing keys and unknown languages. Keys are typed from en.json.
@@ -11,7 +13,7 @@ import tr from "@/messages/tr.json";
 export type MessageKey = keyof typeof en;
 type Messages = Partial<Record<MessageKey, string>>;
 
-const MESSAGES: Record<string, Messages> = { en, es, tr };
+const MESSAGES: Record<string, Messages> = { en, es, zh, vi, ko };
 
 export type T = (key: MessageKey, vars?: Record<string, string | number>) => string;
 
