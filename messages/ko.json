@@ -7,6 +7,8 @@
   "chat.uploadNotPhoto": "사진 또는 PDF를 선택해 주세요.",
   "chat.uploadTooBig": "파일이 10MB보다 큽니다.",
   "chat.uploadFailed": "업로드에 실패했습니다. 다시 시도해 주세요.",
+  "chat.removeAttachment": "첨부 파일 삭제",
+  "chat.notePlaceholder": "메모 추가 (선택 사항)",
   "doc.received": "받음",
   "doc.reading": "읽는 중...",
   "doc.failed": "이 파일을 읽을 수 없습니다",

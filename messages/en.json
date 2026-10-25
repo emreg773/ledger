@@ -7,6 +7,8 @@
   "chat.uploadNotPhoto": "Please choose a photo or a PDF.",
   "chat.uploadTooBig": "That file is bigger than 10 MB.",
   "chat.uploadFailed": "Upload failed. Please try again.",
+  "chat.removeAttachment": "Remove attachment",
+  "chat.notePlaceholder": "Add a note (optional)",
   "doc.received": "Received",
   "doc.reading": "Reading...",
   "doc.failed": "Could not read this file",

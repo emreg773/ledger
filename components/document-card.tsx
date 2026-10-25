@@ -183,6 +183,9 @@ export function DocumentCard({
         </a>
       )}
 
+      {/* The note the owner sent with the document. */}
+      {doc.hint && <p className="whitespace-pre-wrap border-t px-3 py-2 text-sm">{doc.hint}</p>}
+
       <div className="flex items-center gap-2 border-t px-3 py-2">
         {busy && <Loader2 className="size-3 animate-spin" />}
         {doc.status === "failed" && <AlertTriangle className="size-3 text-destructive" />}

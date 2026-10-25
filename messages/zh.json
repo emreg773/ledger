@@ -7,6 +7,8 @@
   "chat.uploadNotPhoto": "请选择照片或 PDF。",
   "chat.uploadTooBig": "文件超过 10 MB。",
   "chat.uploadFailed": "上传失败，请重试。",
+  "chat.removeAttachment": "移除附件",
+  "chat.notePlaceholder": "添加备注（可选）",
   "doc.received": "已收到",
   "doc.reading": "正在读取...",
   "doc.failed": "无法读取此文件",
