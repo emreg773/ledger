@@ -14,20 +14,24 @@ import type { Playbook } from "./playbooks/schema";
 import { checkSender, type SenderCheck } from "./senderCheck";
 import { checkBankHistory, type BankCheckResult, type PayBillResult } from "./nessie";
 import { tryAgentRun } from "./limits";
+import { timelineText } from "./cases";
 
 type ReadDocumentOutput =
   | { ok: false; error: string; needsClearerPhoto: true }
   | {
       ok: true;
       caseId: Id<"cases"> | null;
+      // Distinct notices in the case, this one included. More than 1: call get_case_history.
+      caseNotices: number;
       needsClearerPhoto: boolean;
       extraction: Extraction;
     };
 
 // Brief Section 6, verbatim, with {language} filled in per run.
-function buildInstructions(languageCode: string) {
+function buildInstructions(languageCode: string, todayIso: string) {
   const language = languageName(languageCode);
   return `You are Ledger, a compliance agent for small business owners in the US.
+Today is ${todayIso}. Count days to deadlines from this date, not from your own sense of today.
 
 How you work:
 - You do the work yourself. Investigate, prepare, and draft before you ask the owner anything.
@@ -74,7 +78,15 @@ When a message says a new document arrived, call read_document with its document
    Never propose pay_bill for a suspicious document. Stop there.
 3. load_playbook with the docType and the caseId.
 4. check_bank_history when there is an amountDue.
-5. Reply, and propose actions with propose_action.
+5. If read_document says caseNotices is more than 1, call get_case_history before replying.
+6. Reply, and propose actions with propose_action.
+
+Case memory:
+- When a letter joins an existing case, open with what changed since the last letter.
+- Mention the earlier notice, what the owner already did, and any matching bank payment.
+- Never propose pay_bill when the bank shows a matching payment.
+- If the owner already called and a new notice still arrived, propose calling again and ask the IRS to trace the
+  payment. Put both notice dates and the payment date in the call script.
 
 Proposals:
 - IRS_CP14 with a matching bank payment: the letter is real, but it's already paid. Say that first, with the payment's
@@ -86,6 +98,11 @@ Proposals:
 - IRS_CP14 with no matching payment: propose pay_bill for the amountDue to payee "United States Treasury", memo the
   notice and tax period. If canAffordFullPayment is false, propose the payment plan (irs.gov/paymentplan) as an
   owner_task instead.
+- IRS_CP504 (notice of intent to levy): with a matching bank payment, say first that it's already paid and not to pay
+  again, then follow the case memory rules: one owner_task, summary "Call the IRS at 800-829-4933 to trace your <date>
+  payment", with a callScript (en and translated) naming both notices with their dates, the payment's date, amount and
+  payee, the earlier call if there was one, and a request to trace the payment and apply it. With no matching payment,
+  as for IRS_CP14: pay_bill, or the payment plan when the balance can't cover it.
 - IRS_972CG: propose pay_bill for the amountDue to "United States Treasury" (the "agree" option). Then ask the owner one
   question: was there a reason the 1099s were filed late? If yes, Ledger will prepare a dispute statement explaining
   reasonable cause (coming soon).
@@ -117,12 +134,37 @@ const readDocument: Tool<{ documentId: string }, ReadDocumentOutput> = createToo
     if (!result.ok) {
       return { ok: false, error: result.error, needsClearerPhoto: true };
     }
+    const history = result.caseId
+      ? await ctx.runQuery(internal.cases.historyInternal, { caseId: result.caseId })
+      : null;
     return {
       ok: true,
       caseId: result.caseId,
+      caseNotices: history?.notices ?? 0,
       needsClearerPhoto: result.extraction.overallConfidence < MIN_CONFIDENCE,
       extraction: result.extraction,
     };
+  },
+});
+
+type CaseHistoryOutput = { ok: false; error: string } | { ok: true; stage: number; history: string };
+
+const getCaseHistory: Tool<{ caseId: string }, CaseHistoryOutput> = createTool({
+  description:
+    "The case's full history, oldest first: every notice (dates, amounts), matching bank payments, actions and what the owner did (e.g. a call marked done, and when). Call it when a letter joins a case that already has an earlier notice.",
+  inputSchema: z.object({ caseId: z.string() }),
+  execute: async (ctx, { caseId }): Promise<CaseHistoryOutput> => {
+    const ownerId = ctx.userId as Id<"owners">;
+    const found = await ctx.runQuery(internal.cases.historyInternal, { caseId: caseId as Id<"cases"> });
+    if (!found || found.case.ownerId !== ownerId) return { ok: false, error: "Case not found" };
+    await ctx.runMutation(internal.events.log, {
+      ownerId,
+      caseId: found.case._id,
+      type: "tool_called",
+      summary: `Ledger is reviewing the case history: ${found.notices} notices (get_case_history)`,
+      data: { tool: "get_case_history" },
+    });
+    return { ok: true, stage: found.case.stage ?? 1, history: timelineText(found.items) };
   },
 });
 
@@ -307,13 +349,14 @@ export const ledgerAgent = new Agent(components.agent, {
   languageModel: chatModel,
   tools: {
     read_document: readDocument,
+    get_case_history: getCaseHistory,
     verify_sender: verifySender,
     load_playbook: loadPlaybook,
     check_bank_history: checkBank,
     propose_action: proposeAction,
   },
-  // read, verify, playbook, bank, up to two proposals, then the reply. Headroom for retries.
-  stopWhen: stepCountIs(12),
+  // read, history, verify, playbook, bank, up to two proposals, then the reply. Headroom for retries.
+  stopWhen: stepCountIs(14),
   // Thinking blocks from earlier turns fail the API's signature check ("bound to
   // a different conversation"), which broke every reply after the first. Drop
   // them from history; the current turn's tool loop keeps its own, as required.
@@ -349,7 +392,14 @@ export const respond = internalAction({
       await ledgerAgent.generateText(
         ctx,
         { threadId: owner.agentThreadId, userId: ownerId },
-        { promptMessageId, instructions: buildInstructions(owner.preferredLanguage) },
+        {
+          promptMessageId,
+          // The demo clock's date (clock.ts), so "today" matches skipped-ahead time.
+          instructions: buildInstructions(
+            owner.preferredLanguage,
+            new Date(Date.now() + (owner.clockOffsetMs ?? 0)).toISOString().slice(0, 10),
+          ),
+        },
       );
       // Push only for runs the owner didn't start by typing (they're already looking).
       if (documentId || afterActionId) {

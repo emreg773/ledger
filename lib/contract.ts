@@ -9,7 +9,7 @@ export type BankMatch = NonNullable<Doc<"cases">["bankCheck"]>["matches"][number
 
 export type CaseView = Pick<
   Doc<"cases">,
-  "_id" | "docType" | "title" | "amountDue" | "deadline" | "status" | "verification" | "bankCheck"
+  "_id" | "docType" | "title" | "amountDue" | "deadline" | "status" | "verification" | "bankCheck" | "stage"
 >;
 
 /** What events.listRecentForOwner returns. */

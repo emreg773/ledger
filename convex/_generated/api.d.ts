@@ -40,6 +40,7 @@ import type * as playbooks_countyHealthInspection from "../playbooks/countyHealt
 import type * as playbooks_index from "../playbooks/index.js";
 import type * as playbooks_irs972cg from "../playbooks/irs972cg.js";
 import type * as playbooks_irsCp14 from "../playbooks/irsCp14.js";
+import type * as playbooks_irsCp504 from "../playbooks/irsCp504.js";
 import type * as push from "../push.js";
 import type * as pushNode from "../pushNode.js";
 import type * as senderCheck from "../senderCheck.js";
@@ -86,6 +87,7 @@ declare const fullApi: ApiFromModules<{
   "playbooks/index": typeof playbooks_index;
   "playbooks/irs972cg": typeof playbooks_irs972cg;
   "playbooks/irsCp14": typeof playbooks_irsCp14;
+  "playbooks/irsCp504": typeof playbooks_irsCp504;
   push: typeof push;
   pushNode: typeof pushNode;
   senderCheck: typeof senderCheck;

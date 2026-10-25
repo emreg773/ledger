@@ -224,5 +224,19 @@
   "mail.openInLedger": "Open in Ledger",
   "mail.reading": "Ledger is reading the attachment…",
   "mail.readWithLedger": "Read with Ledger",
-  "mail.openInGmail": "Gmail"
+  "mail.openInGmail": "Gmail",
+  "caseHistory.open": "Case history",
+  "caseHistory.title": "Case history",
+  "caseHistory.description": "Every letter, payment and step in this case, oldest first.",
+  "caseHistory.empty": "Nothing in this case yet.",
+  "caseHistory.secondNotice": "2nd notice",
+  "caseHistory.bankPayment": "Bank payment: {amount} to {payee}",
+  "caseHistory.linked": "New letter joined this case",
+  "caseHistory.opened": "Case opened",
+  "caseHistory.taskDone": "Task done",
+  "caseHistory.taskOpen": "Task to do",
+  "caseHistory.actionDone": "Done",
+  "caseHistory.actionOpen": "Waiting for your approval",
+  "caseHistory.actionRejected": "You declined",
+  "caseHistory.actionFailed": "Didn't go through"
 }

@@ -6,6 +6,7 @@ import type { Extraction } from "@/convex/extraction";
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { VerificationBadge } from "@/components/verification-badge";
+import { CaseHistoryButton } from "@/components/case-history";
 import { docTypeName, useI18n } from "@/lib/i18n";
 import { countdown, formatDate, formatMoney, formatShortDate } from "@/lib/format";
 import type { CaseView } from "@/lib/contract";
@@ -115,6 +116,15 @@ function CaseLines({ caseView, extraction }: { caseView: CaseView; extraction?: 
   const paid = caseView.bankCheck?.matches[0];
   return (
     <div className="space-y-1.5 border-t px-3 py-2 text-xs">
+      {/* Case memory: an escalation joined this case, and its full history. */}
+      <div className="flex flex-wrap items-center gap-2">
+        {(caseView.stage ?? 1) >= 2 && (
+          <Badge variant="outline" className="border-amber-500 text-amber-700 dark:text-amber-400">
+            {t("caseHistory.secondNotice")}
+          </Badge>
+        )}
+        <CaseHistoryButton caseId={caseView._id} />
+      </div>
       {caseView.verification && (
         <div className="flex flex-wrap items-center gap-2">
           <VerificationBadge verdict={caseView.verification.verdict} />

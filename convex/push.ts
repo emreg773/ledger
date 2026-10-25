@@ -295,13 +295,13 @@ export async function queuePush(
 ) {
   const lang = ownerLang(owner);
   const { body, summary } = opts.text ?? message(kind, lang, c, action);
+  const title = kind === "test" ? "Ledger" : (opts.text?.title ?? heading(kind, lang, c, action).title);
 
   // Keep every notification for the notification center, with or without a
   // device. Test pushes aren't worth keeping.
   if (kind !== "test") {
     const head = heading(kind, lang, c, action);
     const category = head.category;
-    const title = opts.text?.title ?? head.title;
     const titleEn = head.titleEn;
     await ctx.db.insert("notifications", {
       ownerId: owner._id,
@@ -316,12 +316,13 @@ export async function queuePush(
     });
   }
 
-  if (opts.deliver === "history_only") return;
+  const result = { title, body };
+  if (opts.deliver === "history_only") return result;
   const hasDevice = await ctx.db
     .query("pushSubscriptions")
     .withIndex("by_owner", (q) => q.eq("ownerId", owner._id))
     .first();
-  if (!hasDevice) return;
+  if (!hasDevice) return result;
   await ctx.scheduler.runAfter(0, internal.pushNode.send, {
     ownerId: owner._id,
     caseId: c?._id,
@@ -333,6 +334,7 @@ export async function queuePush(
     },
     summary,
   });
+  return result;
 }
 
 /**
@@ -419,19 +421,31 @@ export const afterAgentRun = internalMutation({
     if (!doc || doc.ownerId !== ownerId) return null;
     const c = doc.caseId ? await ctx.db.get(doc.caseId) : null;
     const confidence = (doc.extraction as { overallConfidence?: number } | undefined)?.overallConfidence;
+    let kind: PushKind;
     if (doc.status === "failed" || (confidence !== undefined && confidence < MIN_CONFIDENCE)) {
-      await queuePush(ctx, owner, "document_failed", c, null);
-      return null;
+      kind = "document_failed";
+    } else {
+      const proposed = c
+        ? (
+            await ctx.db
+              .query("actions")
+              .withIndex("by_case", (q) => q.eq("caseId", c._id))
+              .collect()
+          ).some((a) => a.createdAt >= startedAt)
+        : false;
+      kind = proposed ? "action_needed" : "document_read";
     }
-    const proposed = c
-      ? (
-          await ctx.db
-            .query("actions")
-            .withIndex("by_case", (q) => q.eq("caseId", c._id))
-            .collect()
-        ).some((a) => a.createdAt >= startedAt)
-      : false;
-    await queuePush(ctx, owner, proposed ? "action_needed" : "document_read", c, null);
+    const sent = await queuePush(ctx, owner, kind, c, null);
+    // A letter sent on Telegram gets its answer there too (Person B's telegram.ts).
+    if (doc.source === "telegram") {
+      await ctx.scheduler.runAfter(0, internal.telegram.notifyDocumentResult, {
+        ownerId,
+        documentId,
+        caseId: c?._id,
+        title: sent.title,
+        body: sent.body,
+      });
+    }
     return null;
   },
 });

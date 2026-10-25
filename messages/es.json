@@ -224,5 +224,19 @@
   "mail.openInLedger": "Abrir en Ledger",
   "mail.reading": "Ledger está leyendo el adjunto…",
   "mail.readWithLedger": "Leer con Ledger",
-  "mail.openInGmail": "Gmail"
+  "mail.openInGmail": "Gmail",
+  "caseHistory.open": "Historial del caso",
+  "caseHistory.title": "Historial del caso",
+  "caseHistory.description": "Cada carta, pago y paso de este caso, del más antiguo al más reciente.",
+  "caseHistory.empty": "Todavía no hay nada en este caso.",
+  "caseHistory.secondNotice": "2.º aviso",
+  "caseHistory.bankPayment": "Pago bancario: {amount} a {payee}",
+  "caseHistory.linked": "Una nueva carta se unió a este caso",
+  "caseHistory.opened": "Caso abierto",
+  "caseHistory.taskDone": "Tarea hecha",
+  "caseHistory.taskOpen": "Tarea pendiente",
+  "caseHistory.actionDone": "Listo",
+  "caseHistory.actionOpen": "Esperando su aprobación",
+  "caseHistory.actionRejected": "Usted lo rechazó",
+  "caseHistory.actionFailed": "No se completó"
 }
