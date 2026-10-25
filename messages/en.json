@@ -238,5 +238,18 @@
   "caseHistory.actionDone": "Done",
   "caseHistory.actionOpen": "Waiting for your approval",
   "caseHistory.actionRejected": "You declined",
-  "caseHistory.actionFailed": "Didn't go through"
+  "caseHistory.actionFailed": "Didn't go through",
+  "clock.menu": "Demo clock",
+  "clock.title": "Demo clock",
+  "clock.description": "Skip time forward to see reminders and follow-up letters. Only your account is affected.",
+  "clock.current": "Demo date:",
+  "clock.skipped": "skipped ahead",
+  "clock.plusDay": "+1 day",
+  "clock.plusWeek": "+1 week",
+  "clock.plus30": "+30 days",
+  "clock.pickDate": "Pick a date",
+  "clock.go": "Go",
+  "clock.reset": "Reset to today",
+  "clock.close": "Close",
+  "clock.banner": "Demo date: {date}"
 }

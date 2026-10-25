@@ -31,6 +31,7 @@ import {
 import { api } from "@/convex/_generated/api";
 import { errorMessage } from "@/lib/errors";
 import { useI18n } from "@/lib/i18n";
+import { DemoClockDialog } from "@/components/demo-clock";
 import type { usePush } from "@/lib/push";
 
 // Header menu (docs/ledger-step3-B.md, Section 4): language, notifications,
@@ -60,6 +61,7 @@ export function AppMenu({
   const [typed, setTyped] = useState("");
   const [pending, setPending] = useState(false);
   const [note, setNote] = useState<string | null>(null);
+  const [clockOpen, setClockOpen] = useState(false);
 
   const deleteWord = t("menu.deleteWord");
 
@@ -167,6 +169,10 @@ export function AppMenu({
           )}
           <DropdownMenuSeparator />
           <DropdownMenuGroup>
+            <DropdownMenuItem onClick={() => setClockOpen(true)}>{t("clock.menu")}</DropdownMenuItem>
+          </DropdownMenuGroup>
+          <DropdownMenuSeparator />
+          <DropdownMenuGroup>
             <DropdownMenuItem onClick={() => setConfirm("reset")}>{t("menu.reset")}</DropdownMenuItem>
             <DropdownMenuItem variant="destructive" onClick={() => setConfirm("delete")}>
               {t("menu.delete")}
@@ -186,6 +192,8 @@ export function AppMenu({
           {note}
         </p>
       )}
+
+      <DemoClockDialog open={clockOpen} onOpenChange={setClockOpen} />
 
       <AlertDialog
         open={confirm !== null}

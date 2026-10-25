@@ -15,6 +15,7 @@ import { DocumentCard } from "@/components/document-card";
 import { ActionCard } from "@/components/action-card";
 import { ActivitySummary, LiveActivity, activitySteps } from "@/components/activity";
 import { AppMenu } from "@/components/app-menu";
+import { DemoClockBanner } from "@/components/demo-clock";
 import { Home } from "@/components/home";
 import { NotificationCenter } from "@/components/notification-center";
 import { errorMessage } from "@/lib/errors";
@@ -201,6 +202,7 @@ function Header({
   const { t } = useI18n();
   return (
     <header className="relative border-b-2 border-double border-foreground/70 bg-background">
+      <DemoClockBanner />
       <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-2 px-3 py-2 lg:px-6">
         <div className="flex min-w-0 items-center gap-2">
           {view === "conversation" && (

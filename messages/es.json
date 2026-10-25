@@ -238,5 +238,18 @@
   "caseHistory.actionDone": "Listo",
   "caseHistory.actionOpen": "Esperando su aprobación",
   "caseHistory.actionRejected": "Usted lo rechazó",
-  "caseHistory.actionFailed": "No se completó"
+  "caseHistory.actionFailed": "No se completó",
+  "clock.menu": "Reloj de demostración",
+  "clock.title": "Reloj de demostración",
+  "clock.description": "Adelante el tiempo para ver recordatorios y cartas de seguimiento. Solo afecta a su cuenta.",
+  "clock.current": "Fecha de demostración:",
+  "clock.skipped": "adelantada",
+  "clock.plusDay": "+1 día",
+  "clock.plusWeek": "+1 semana",
+  "clock.plus30": "+30 días",
+  "clock.pickDate": "Elija una fecha",
+  "clock.go": "Ir",
+  "clock.reset": "Volver a hoy",
+  "clock.close": "Cerrar",
+  "clock.banner": "Fecha de demostración: {date}"
 }

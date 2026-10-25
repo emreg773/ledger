@@ -12,4 +12,7 @@ crons.interval("sync google calendars", { hours: 1 }, internal.googleCalendar.sy
 // Connected Gmail inboxes: new government mail shows up within 15 minutes.
 crons.interval("sync gmail", { minutes: 15 }, internal.gmail.syncAll, {});
 
+// Deadline reminders for every owner, by each owner's demo clock (deadlines.ts).
+crons.interval("deadline reminders", { hours: 1 }, internal.deadlines.runDueAll, {});
+
 export default crons;
