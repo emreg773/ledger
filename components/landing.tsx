@@ -616,12 +616,13 @@ function Products() {
       <Reveal>
         <SectionTitle eyebrow={t("landing.productsEyebrow")} title={t("landing.productsTitle")} />
       </Reveal>
-      <div className="mx-auto mt-16 grid max-w-6xl gap-4 lg:grid-cols-3">
+      {/* Subgrid rows on desktop, so titles, blurbs and dividers line up across the cards. */}
+      <div className="mx-auto mt-16 grid max-w-6xl gap-4 lg:grid-cols-3 lg:gap-y-0">
         {PRODUCTS.map(({ key, Icon, live }, i) => (
-          <Reveal key={key} delay={i * 110}>
+          <Reveal key={key} delay={i * 110} className="lg:row-span-3 lg:grid lg:grid-rows-subgrid">
             <div
               className={cn(
-                "landing-card relative flex h-full flex-col overflow-hidden rounded-3xl border p-7 sm:p-8",
+                "landing-card relative flex h-full flex-col overflow-hidden rounded-3xl border p-7 sm:p-8 lg:row-span-3 lg:grid lg:grid-rows-subgrid lg:gap-0",
                 live ? "border-[#3d3fe0]/50 bg-[#0b0b14]" : "border-[#1c1c1f] bg-[#0a0a0b]",
               )}
             >
@@ -645,10 +646,12 @@ function Products() {
                   </span>
                 )}
               </div>
-              <h3 className="mt-7 text-lg leading-snug font-medium">
-                {t(`landing.product.${key}.title` as MessageKey)}
-              </h3>
-              <p className="mt-1 text-[15px] text-[#9a9aa2]">{t(`landing.product.${key}.body` as MessageKey)}</p>
+              <div className="mt-7">
+                <h3 className="text-lg leading-snug font-medium">
+                  {t(`landing.product.${key}.title` as MessageKey)}
+                </h3>
+                <p className="mt-1 text-[15px] text-[#9a9aa2]">{t(`landing.product.${key}.body` as MessageKey)}</p>
+              </div>
               <ul className="mt-6 space-y-3 border-t border-white/5 pt-6">
                 {[1, 2, 3, 4].map((n) => (
                   <li key={n} className="flex gap-3 text-[15px] leading-snug text-[#d4d4d8]">
