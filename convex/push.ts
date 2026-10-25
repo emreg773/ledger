@@ -8,6 +8,13 @@ import { MIN_CONFIDENCE } from "./extraction";
 
 // Web push (Step 3 brief, Section 7). Track B's service worker subscribes and
 // calls saveSubscription; Track A sends every push (notifyOwner → pushNode.send).
+//
+// Web push is OFF for now (WEB_PUSH below): notifications are Telegram nudges
+// (nudges.ts), and queuePush only records them for the notification center.
+// Everything else stays so it can come back: the subscriptions table, these
+// mutations, pushNode.ts, public/sw.js, lib/push.ts (usePush) and the VAPID
+// keys. To bring it back, set WEB_PUSH to true and put usePush back in the UI.
+const WEB_PUSH = false;
 
 export const pushKind = v.union(
   v.literal("document_read"),
@@ -15,10 +22,8 @@ export const pushKind = v.union(
   v.literal("action_done"),
   v.literal("document_failed"),
   v.literal("test"),
-  // Step 4. Their text comes from the caller (queuePush's `text` option).
-  v.literal("deadline_reminder"), // deadlines.ts
-  v.literal("weekly_roundup"), // digest.ts (Person B)
-  v.literal("nudge"), // digest.ts (Person B)
+  // Step 4. Its text comes from the caller (queuePush's `text` option).
+  v.literal("nudge"), // nudges.ts
 );
 
 /** Upserts by endpoint. A browser that was another owner's (a shared device) moves to this one. */
@@ -256,8 +261,6 @@ function message(
       const body = { en: "Notifications are on.", es: "Las notificaciones están activadas.", zh: "通知已开启。", vi: "Thông báo đã bật.", ko: "알림이 켜졌습니다.", tr: "Bildirimler açık." }[lang];
       return { body, summary: "Test notification" };
     }
-    case "deadline_reminder":
-    case "weekly_roundup":
     case "nudge": {
       // Callers pass their own text; this is only the fallback.
       const body = { en: "You have an update in Ledger.", es: "Tiene una novedad en Ledger.", zh: "Ledger 有新消息。", vi: "Bạn có cập nhật mới trong Ledger.", ko: "Ledger에 새 소식이 있습니다.", tr: "Ledger'da sizin için bir güncelleme var." }[lang];
@@ -292,10 +295,6 @@ function heading(
       return action?.type === "pay_bill"
         ? pick("done", { en: "Payment made", es: "Pago realizado", zh: "已付款", vi: "Đã thanh toán", ko: "납부 완료", tr: "Ödeme yapıldı" })
         : pick("done", { en: "Done", es: "Listo", zh: "已完成", vi: "Đã xong", ko: "완료", tr: "Tamamlandı" });
-    case "deadline_reminder":
-      return pick("reminder", { en: "Reminder", es: "Recordatorio", zh: "提醒", vi: "Lời nhắc", ko: "알림", tr: "Hatırlatma" });
-    case "weekly_roundup":
-      return pick("reminder", { en: "Your week", es: "Su semana", zh: "本周概览", vi: "Tuần của bạn", ko: "이번 주", tr: "Haftanız" });
     case "nudge":
       return pick("reminder", { en: "Don't forget", es: "No lo olvide", zh: "别忘了", vi: "Đừng quên", ko: "잊지 마세요", tr: "Unutmayın" });
   }
@@ -304,7 +303,7 @@ function heading(
 export type QueuePushOptions = {
   /** "history_only": record it in the notification center without a push (e.g. a Telegram message). */
   deliver?: "push" | "history_only";
-  /** Text in the owner's language for kinds that build their own (reminders, roundups, nudges). */
+  /** Text in the owner's language for kinds that build their own (nudges). */
   text?: { title?: string; body: string; summary: string };
   /** Tap target; defaults to the case, or the home screen. */
   url?: string;
@@ -349,7 +348,7 @@ export async function queuePush(
   }
 
   const result = { title, body };
-  if (opts.deliver === "history_only") return result;
+  if (!WEB_PUSH || opts.deliver === "history_only") return result;
   const hasDevice = await ctx.db
     .query("pushSubscriptions")
     .withIndex("by_owner", (q) => q.eq("ownerId", owner._id))
@@ -388,6 +387,9 @@ export const afterAgentRun = internalMutation({
 
     if (afterActionId) {
       const action = await ctx.db.get(afterActionId);
+      // An owner task marked done gets no "Done" notification: its "Action
+      // needed" notification shows as finished instead (notification-center.tsx).
+      if (action?.type === "owner_task" && action.status === "executed") return null;
       if (action && (action.status === "executed" || action.status === "failed")) {
         await queuePush(ctx, owner, "action_done", await ctx.db.get(action.caseId), action);
       }

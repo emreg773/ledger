@@ -1,5 +1,6 @@
 import { v, type Infer } from "convex/values";
-import { internal } from "./_generated/api";
+import { saveMessage } from "@convex-dev/agent";
+import { components, internal } from "./_generated/api";
 import {
   internalAction,
   internalMutation,
@@ -12,6 +13,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { actionType } from "./schema";
 import { logEvent } from "./events";
 import { requireOwnerOf, viewerOwner } from "./access";
+import { SYSTEM_NOTE_PREFIX } from "./shared";
 
 // The action system (Step 2 brief, Track B, Section 3).
 // The agent proposes; the server decides autonomy from the type, never the agent.
@@ -29,7 +31,7 @@ const AUTONOMY: Record<ActionType, Autonomy> = {
   owner_task: "human_only",
 };
 
-/** pay_bill payload. owner_task payload: { instructions, callScript?: { en, translated }, phone? }. */
+/** pay_bill payload. owner_task payload: { instructions, checklist?, dueDate?, callScript?: { en, translated }, phone? }. */
 export type PayBillPayload = {
   amount: number;
   payee: string;
@@ -73,6 +75,7 @@ export const propose = internalMutation({
     type: actionType,
     summary: v.string(),
     payload: v.any(),
+    threadId: v.optional(v.string()), // the conversation it's proposed in
   },
   handler: async (ctx, args): Promise<Id<"actions">> => {
     const autonomyLevel = AUTONOMY[args.type];
@@ -169,6 +172,41 @@ export const markDone = mutation({
       data: { actionId },
     });
     await notifyAgent(ctx, action.ownerId, actionId);
+    return null;
+  },
+});
+
+/**
+ * Undoes "Mark done" on an owner task: it's open again (and nudged again).
+ * The agent gets a quiet note in the task's conversation, with no reply, so its
+ * next answer knows the task is open.
+ */
+export const reopen = mutation({
+  args: { actionId: v.id("actions") },
+  handler: async (ctx, { actionId }) => {
+    const action = await load(ctx, actionId);
+    if (action.type !== "owner_task") throw new Error("Only owner tasks can be reopened.");
+    if (action.status === "proposed") return null; // double tap
+    if (action.status !== "executed") {
+      throw new Error(`Only tasks marked done can be reopened; this one is ${action.status}.`);
+    }
+    await ctx.db.patch(actionId, { status: "proposed", decidedAt: undefined, executedAt: undefined });
+    await logEvent(ctx, {
+      ownerId: action.ownerId,
+      caseId: action.caseId,
+      type: "action_reopened",
+      summary: `Owner undid "done": ${describe(action)}`,
+      data: { actionId },
+    });
+    const owner = await ctx.db.get(action.ownerId);
+    const threadId = action.threadId ?? owner?.agentThreadId;
+    if (threadId) {
+      await saveMessage(ctx, components.agent, {
+        threadId,
+        userId: action.ownerId,
+        prompt: `${SYSTEM_NOTE_PREFIX} The owner undid "mark done" on this task, so it's open again: "${action.summary}". No reply needed.`,
+      });
+    }
     return null;
   },
 });

@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ComponentProps } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { useUIMessages } from "@convex-dev/agent/react";
 import imageCompression from "browser-image-compression";
 import ReactMarkdown from "react-markdown";
-import { ArrowLeft, Camera, FileText, Loader2, SendHorizontal, X } from "lucide-react";
+import { ArrowLeft, Camera, FileText, History, Loader2, Plus, SendHorizontal, X } from "lucide-react";
 import { api } from "@/convex/_generated/api";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
 import { DOCUMENT_MARKER, SYSTEM_NOTE_PREFIX } from "@/convex/shared";
@@ -17,26 +17,38 @@ import { ActivitySummary, LiveActivity, activitySteps } from "@/components/activ
 import { AppMenu } from "@/components/app-menu";
 import { DemoClockBanner } from "@/components/demo-clock";
 import { Home } from "@/components/home";
+import { ConversationsDialog } from "@/components/conversations";
 import { NotificationCenter } from "@/components/notification-center";
 import { errorMessage } from "@/lib/errors";
 import { useI18n } from "@/lib/i18n";
 import { splitReply } from "@/lib/markers";
-import { usePush } from "@/lib/push";
 import type { RecentEvent } from "@/lib/contract";
 
 const MAX_BYTES = 10 * 1024 * 1024;
+// Matches convex/intake.ts: several files sent together are pages of one document.
+const MAX_PAGES = 10;
 
 export function Chat({ owner }: { owner: Doc<"owners"> }) {
-  const push = usePush();
-  // The home screen until the owner sends something; then the conversation.
+  // The home screen, or one conversation. New conversations start from the home
+  // screen's message box or Telegram (convex/conversations.ts).
   const [view, setView] = useState<"home" | "conversation">("home");
+  const [threadId, setThreadId] = useState<string | null>(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const conversations = useQuery(api.conversations.list, {});
   const { results: messages } = useUIMessages(
     api.chat.listThreadMessages,
-    { threadId: owner.agentThreadId },
+    threadId ? { threadId } : "skip",
     { initialNumItems: 50, stream: true },
   );
   const documents = useQuery(api.documents.listForOwner, {});
   const docsById = new Map((documents ?? []).map((d) => [d._id as string, d]));
+  // Letters from before conversation history belong to the owner's first thread.
+  const threadOf = (d: { threadId?: string }) => d.threadId ?? owner.agentThreadId;
+  const openConversation = (id: string) => {
+    setThreadId(id);
+    setView("conversation");
+    setHistoryOpen(false);
+  };
   const events: RecentEvent[] = useQuery(api.events.listRecentForOwner, { limit: 100 }) ?? [];
   const cases = useQuery(api.cases.listForOwner, {});
   const casesById = new Map((cases ?? []).map((c) => [c._id as string, c]));
@@ -54,7 +66,9 @@ export function Chat({ owner }: { owner: Doc<"owners"> }) {
   // Working = a document is still being processed, a reply is in progress,
   // or the last thing in the thread is the owner's message.
   const working =
-    (documents ?? []).some((d) => d.status === "received" || d.status === "extracting") ||
+    (documents ?? []).some(
+      (d) => threadOf(d) === threadId && (d.status === "received" || d.status === "extracting"),
+    ) ||
     messages.some((m) => m.status === "pending" || m.status === "streaming") ||
     visible.at(-1)?.role === "user";
 
@@ -65,38 +79,54 @@ export function Chat({ owner }: { owner: Doc<"owners"> }) {
   const stepsBetween = (from: number, to: number) =>
     activitySteps(events.filter((e) => e.at >= from && e.at < to));
 
-  // A push opens /?case=<caseId>, and the notification list and calendar
-  // send "ledger:open-case": open the conversation, scroll to that letter once
-  // it has loaded, highlight it, and skip the usual scroll to the bottom.
-  const deepLinkCase = useRef<string | null>(null);
+  // A Telegram link opens /?doc=<documentId> or /?case=<caseId>, and the
+  // notification list and calendar send "ledger:open-case": open the
+  // conversation, scroll to that letter once it has loaded, highlight it, and
+  // skip the usual scroll to the bottom.
+  const deepLink = useRef<string | null>(null); // a CSS selector for the letter
   const [scrollRequest, setScrollRequest] = useState(0);
+  // The letter to open, until the documents have loaded and its conversation is known.
+  const [target, setTarget] = useState<{ docId?: string; caseId?: string } | null>(null);
   useEffect(() => {
-    const caseId = new URLSearchParams(window.location.search).get("case");
-    const open = (id: string) => {
-      deepLinkCase.current = id;
-      setView("conversation");
-      setScrollRequest((n) => n + 1);
-    };
-    if (caseId) open(caseId);
-    const onOpen = (e: Event) => open((e as CustomEvent<string>).detail);
+    const params = new URLSearchParams(window.location.search);
+    const docId = params.get("doc");
+    const caseId = params.get("case");
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- the URL only exists after mount
+    if (docId || caseId) setTarget({ docId: docId ?? undefined, caseId: caseId ?? undefined });
+    const onOpen = (e: Event) => setTarget({ caseId: (e as CustomEvent<string>).detail });
     window.addEventListener("ledger:open-case", onOpen);
     return () => window.removeEventListener("ledger:open-case", onOpen);
   }, []);
+  useEffect(() => {
+    if (!target || documents === undefined) return;
+    // A case's newest letter (the list is newest first).
+    const doc = target.docId ? docsById.get(target.docId) : documents.find((d) => d.caseId === target.caseId);
+    deepLink.current = target.docId
+      ? `[data-document-id="${CSS.escape(target.docId)}"]`
+      : `[data-case-id="${CSS.escape(target.caseId ?? "")}"]`;
+    /* eslint-disable react-hooks/set-state-in-effect -- opening the letter's conversation once it's known */
+    setTarget(null);
+    openConversation(doc ? threadOf(doc) : owner.agentThreadId);
+    setScrollRequest((n) => n + 1);
+    /* eslint-enable react-hooks/set-state-in-effect */
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs when a target or the documents arrive
+  }, [target, documents]);
 
   const bottomRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (view !== "conversation") return;
-    const caseId = deepLinkCase.current;
-    if (!caseId) {
+    const selector = deepLink.current;
+    if (!selector) {
       bottomRef.current?.scrollIntoView({ behavior: "smooth" });
       return;
     }
     if (documents === undefined || visible.length === 0) return;
-    deepLinkCase.current = null;
+    deepLink.current = null;
     const url = new URL(window.location.href);
     url.searchParams.delete("case");
+    url.searchParams.delete("doc");
     window.history.replaceState(null, "", url);
-    const el = document.querySelector<HTMLElement>(`[data-case-id="${CSS.escape(caseId)}"]`);
+    const el = document.querySelector<HTMLElement>(selector);
     if (!el) return;
     el.scrollIntoView({ behavior: "smooth", block: "start" });
     el.dataset.highlight = "true";
@@ -105,7 +135,14 @@ export function Chat({ owner }: { owner: Doc<"owners"> }) {
 
   return (
     <div className="flex h-dvh w-full flex-col">
-      <Header owner={owner} push={push} view={view} onHome={() => setView("home")} />
+      <Header owner={owner} view={view} onHome={() => setView("home")} onHistory={() => setHistoryOpen(true)} />
+      <ConversationsDialog
+        open={historyOpen}
+        onOpenChange={setHistoryOpen}
+        conversations={conversations}
+        activeThreadId={view === "conversation" ? threadId : null}
+        onSelect={openConversation}
+      />
 
       {view === "home" ? (
         <main className="min-h-0 flex-1 overflow-y-auto">
@@ -113,29 +150,22 @@ export function Chat({ owner }: { owner: Doc<"owners"> }) {
             owner={owner}
             cases={cases ?? []}
             documents={documents ?? []}
-            hasConversation={visible.length > 0}
-            push={push}
-            onOpenConversation={() => setView("conversation")}
+            conversationCount={conversations?.length ?? 0}
+            onOpenConversations={() => setHistoryOpen(true)}
           />
         </main>
       ) : (
       <main className="min-h-0 flex-1 overflow-y-auto">
        <div className="mx-auto w-full max-w-2xl space-y-3 px-3 py-4">
-        {visible.length === 0 && <Welcome owner={owner} />}
         {visible.map((m, i) => {
           const docId = m.role === "user" ? m.text.match(DOCUMENT_MARKER)?.[1] : undefined;
           if (docId) {
             return (
-              <div
+              <DocumentRow
                 key={m.key}
-                data-case-id={docsById.get(docId)?.caseId}
-                className="flex scroll-mt-4 justify-end rounded-2xl transition-shadow data-highlight:ring-2 data-highlight:ring-ring"
-              >
-                <DocumentCard
-                  doc={docsById.get(docId)}
-                  caseView={caseFor(docsById.get(docId)?.caseId)}
-                />
-              </div>
+                doc={docsById.get(docId)}
+                caseView={caseFor(docsById.get(docId)?.caseId)}
+              />
             );
           }
           return m.role === "user" ? (
@@ -177,21 +207,68 @@ export function Chat({ owner }: { owner: Doc<"owners"> }) {
       </main>
       )}
 
-      <Composer onSent={() => setView("conversation")} />
+      {/* From the home screen, sending starts a new conversation; inside one, it continues it. */}
+      <Composer threadId={view === "conversation" ? threadId : null} onSent={openConversation} />
+    </div>
+  );
+}
+
+/**
+ * A letter in the conversation. Once Ledger has read it and its card is on
+ * screen with the tab visible, it counts as opened (stops the "not opened" nudge).
+ */
+function DocumentRow({ doc, caseView }: ComponentProps<typeof DocumentCard>) {
+  const ref = useRef<HTMLDivElement>(null);
+  const markOpened = useMutation(api.documents.markOpened);
+  const unopened = doc?.status === "extracted" && doc.openedAt === undefined ? doc._id : null;
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!unopened || !el) return;
+    let onScreen = false;
+    let done = false;
+    const mark = () => {
+      if (done || !onScreen || document.visibilityState !== "visible") return;
+      done = true;
+      void markOpened({ documentId: unopened });
+    };
+    const observer = new IntersectionObserver(
+      (entries) => {
+        onScreen = entries.some((e) => e.isIntersecting);
+        mark();
+      },
+      { threshold: 0.3 },
+    );
+    observer.observe(el);
+    document.addEventListener("visibilitychange", mark);
+    return () => {
+      observer.disconnect();
+      document.removeEventListener("visibilitychange", mark);
+    };
+  }, [unopened, markOpened]);
+
+  return (
+    <div
+      ref={ref}
+      data-case-id={doc?.caseId}
+      data-document-id={doc?._id}
+      className="flex scroll-mt-4 justify-end rounded-2xl transition-shadow data-highlight:ring-2 data-highlight:ring-ring"
+    >
+      <DocumentCard doc={doc} caseView={caseView} />
     </div>
   );
 }
 
 function Header({
   owner,
-  push,
   view,
   onHome,
+  onHistory,
 }: {
   owner: Doc<"owners">;
-  push: ReturnType<typeof usePush>;
   view: "home" | "conversation";
   onHome: () => void;
+  onHistory: () => void;
 }) {
   const { t } = useI18n();
   return (
@@ -210,8 +287,15 @@ function Header({
           </button>
         </div>
         <div className="flex items-center gap-1">
-          {view === "conversation" && <NotificationCenter />}
-          <AppMenu owner={owner} push={push} />
+          {view === "conversation" && (
+            <>
+              <Button variant="ghost" size="icon-lg" aria-label={t("home.conversations")} onClick={onHistory}>
+                <History />
+              </Button>
+              <NotificationCenter />
+            </>
+          )}
+          <AppMenu owner={owner} />
         </div>
       </div>
     </header>
@@ -234,7 +318,8 @@ export function Welcome({ owner }: { owner: Doc<"owners"> }) {
   );
 }
 
-/** A picked file waiting for Send. It uploads to storage while the owner types. */
+/** A picked file waiting for Send. It uploads to storage while the owner types.
+ * Several attachments are sent as the pages of one document, in this order. */
 type Attachment = {
   key: number;
   name: string;
@@ -243,31 +328,32 @@ type Attachment = {
   upload: Promise<{ storageId: Id<"_storage">; mimeType: string }>;
 };
 
-function Composer({ onSent }: { onSent: () => void }) {
+function Composer({ threadId, onSent }: { threadId: string | null; onSent: (threadId: string) => void }) {
   const { t } = useI18n();
   const generateUploadUrl = useMutation(api.documents.generateUploadUrl);
   const ingestWebUpload = useMutation(api.intake.ingestWebUpload);
   const sendMessage = useMutation(api.chat.sendMessage);
   const fileInput = useRef<HTMLInputElement>(null);
   const [text, setText] = useState("");
-  const [attachment, setAttachment] = useState<Attachment | null>(null);
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // The home screen's "Upload a letter" tile opens this file picker.
+  // Free each photo preview when its attachment is removed or sent.
+  const previews = useRef(new Map<number, string>());
   useEffect(() => {
-    const pick = () => fileInput.current?.click();
-    window.addEventListener("ledger:upload", pick);
-    return () => window.removeEventListener("ledger:upload", pick);
+    const live = new Set(attachments.map((a) => a.key));
+    for (const [key, url] of previews.current) {
+      if (!live.has(key)) {
+        URL.revokeObjectURL(url);
+        previews.current.delete(key);
+      }
+    }
+  }, [attachments]);
+  useEffect(() => {
+    const map = previews.current;
+    return () => map.forEach((url) => URL.revokeObjectURL(url));
   }, []);
-
-  // Free the photo preview when the attachment is removed, sent, or replaced.
-  useEffect(() => {
-    const url = attachment?.previewUrl;
-    return () => {
-      if (url) URL.revokeObjectURL(url);
-    };
-  }, [attachment?.previewUrl]);
 
   async function prepare(original: File) {
     const isPdf = original.type === "application/pdf";
@@ -297,53 +383,63 @@ function Composer({ onSent }: { onSent: () => void }) {
     return { storageId, mimeType: file.type };
   }
 
-  // Picking a file only attaches it; nothing reaches the agent until Send.
+  // Picking files only attaches them; nothing reaches the agent until Send.
   // A removed attachment's upload is left for the hourly unused-upload cleanup.
-  async function attach(original: File) {
+  const nextKey = useRef(0);
+  function attach(picked: File[]) {
     if (fileInput.current) fileInput.current.value = "";
     setError(null);
-    const isPdf = original.type === "application/pdf";
-    if (!isPdf && !original.type.startsWith("image/")) {
-      setError(t("chat.uploadNotPhoto"));
-      return;
-    }
-    const key = Date.now();
-    const prepared = prepare(original);
-    const upload = prepared.then(store);
-    setAttachment({
-      key,
-      name: original.name,
-      previewUrl: isPdf ? null : URL.createObjectURL(original),
-      ready: false,
-      upload,
-    });
-    const isCurrent = (a: Attachment | null) => a?.key === key;
-    upload.then(
-      () => setAttachment((a) => (a && isCurrent(a) ? { ...a, ready: true } : a)),
-      (e: unknown) => {
-        setAttachment((a) => (isCurrent(a) ? null : a));
-        setError(
-          e instanceof Error && e.message === "too_big"
-            ? t("chat.uploadTooBig")
-            : errorMessage(t, e, "chat.uploadFailed"),
-        );
-      },
+    const supported = picked.filter(
+      (f) => f.type === "application/pdf" || f.type.startsWith("image/"),
     );
+    if (supported.length < picked.length) setError(t("chat.uploadNotPhoto"));
+    const room = MAX_PAGES - attachments.length;
+    if (supported.length > room) setError(t("chat.tooManyPages"));
+    // Files picked together go in name order, so page1/page2 land in page order.
+    const added = supported
+      .slice(0, Math.max(0, room))
+      .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }))
+      .map((original): Attachment => {
+        const key = nextKey.current++;
+        const isPdf = original.type === "application/pdf";
+        const previewUrl = isPdf ? null : URL.createObjectURL(original);
+        if (previewUrl) previews.current.set(key, previewUrl);
+        const upload = prepare(original).then(store);
+        upload.then(
+          () => setAttachments((list) => list.map((a) => (a.key === key ? { ...a, ready: true } : a))),
+          (e: unknown) => {
+            setAttachments((list) => list.filter((a) => a.key !== key));
+            setError(
+              e instanceof Error && e.message === "too_big"
+                ? t("chat.uploadTooBig")
+                : errorMessage(t, e, "chat.uploadFailed"),
+            );
+          },
+        );
+        return { key, name: original.name, previewUrl, ready: false, upload };
+      });
+    if (added.length) setAttachments((list) => [...list, ...added]);
   }
 
   async function send() {
     const trimmed = text.trim();
     if (sending) return;
-    if (attachment) {
+    if (attachments.length) {
       // The typed text goes with the document as the owner's note.
       setError(null);
       setSending(true);
       try {
-        const { storageId, mimeType } = await attachment.upload;
-        await ingestWebUpload({ storageId, mimeType, hint: trimmed || undefined });
-        setAttachment(null);
+        const [first, ...rest] = await Promise.all(attachments.map((a) => a.upload));
+        const sentTo = await ingestWebUpload({
+          storageId: first.storageId,
+          mimeType: first.mimeType,
+          extraPages: rest.length ? rest : undefined,
+          hint: trimmed || undefined,
+          threadId: threadId ?? undefined,
+        });
+        setAttachments([]);
         setText("");
-        onSent();
+        onSent(sentTo);
       } catch (e) {
         // A failed upload already cleared itself and set the error in attach().
         if (!(e instanceof Error && e.message === "too_big")) {
@@ -358,8 +454,8 @@ function Composer({ onSent }: { onSent: () => void }) {
     setError(null);
     setText("");
     try {
-      await sendMessage({ text: trimmed });
-      onSent();
+      const sentTo = await sendMessage({ text: trimmed, threadId: threadId ?? undefined });
+      if (sentTo) onSent(sentTo);
     } catch (e) {
       setText(trimmed);
       setError(errorMessage(t, e, "chat.sendFailed"));
@@ -377,39 +473,64 @@ function Composer({ onSent }: { onSent: () => void }) {
           void send();
         }}
       >
-       {attachment && (
+       {attachments.length > 0 && (
         <div className="px-1 pt-1 pb-1.5">
-          <div className="group relative inline-flex">
-            {attachment.previewUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element -- local object URL
-              <img
-                src={attachment.previewUrl}
-                alt={attachment.name}
-                className="size-16 rounded-lg border object-cover"
-              />
-            ) : (
-              <div className="flex h-16 max-w-48 items-center gap-2 rounded-lg border bg-muted px-3 text-xs">
-                <FileText className="size-5 shrink-0" />
-                <span className="truncate">{attachment.name}</span>
+          <div className="flex gap-2 overflow-x-auto pt-2 pr-2">
+            {attachments.map((a, i) => (
+              <div key={a.key} className="group relative inline-flex shrink-0">
+                {a.previewUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element -- local object URL
+                  <img
+                    src={a.previewUrl}
+                    alt={a.name}
+                    className="size-16 rounded-lg border object-cover"
+                  />
+                ) : (
+                  <div className="flex h-16 max-w-48 items-center gap-2 rounded-lg border bg-muted px-3 text-xs">
+                    <FileText className="size-5 shrink-0" />
+                    <span className="truncate">{a.name}</span>
+                  </div>
+                )}
+                {attachments.length > 1 && (
+                  <span className="absolute bottom-1 left-1 rounded bg-background/80 px-1 text-[10px] font-medium">
+                    {i + 1}
+                  </span>
+                )}
+                {(!a.ready || sending) && (
+                  <div className="absolute inset-0 flex items-center justify-center rounded-lg bg-background/60">
+                    <Loader2 className="size-5 animate-spin" />
+                  </div>
+                )}
+                {!sending && (
+                  // Shows on hover or keyboard focus; always shown on touch screens.
+                  <button
+                    type="button"
+                    aria-label={t("chat.removeAttachment")}
+                    onClick={() => setAttachments((list) => list.filter((x) => x.key !== a.key))}
+                    className="absolute -top-2 -right-2 flex size-6 items-center justify-center rounded-full border bg-background text-foreground shadow-sm opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-100"
+                  >
+                    <X className="size-3.5" />
+                  </button>
+                )}
               </div>
-            )}
-            {(!attachment.ready || sending) && (
-              <div className="absolute inset-0 flex items-center justify-center rounded-lg bg-background/60">
-                <Loader2 className="size-5 animate-spin" />
-              </div>
-            )}
-            {!sending && (
-              // Shows on hover or keyboard focus; always shown on touch screens.
+            ))}
+            {!sending && attachments.length < MAX_PAGES && (
               <button
                 type="button"
-                aria-label={t("chat.removeAttachment")}
-                onClick={() => setAttachment(null)}
-                className="absolute -top-2 -right-2 flex size-6 items-center justify-center rounded-full border bg-background text-foreground shadow-sm opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-100"
+                aria-label={t("chat.addPage")}
+                title={t("chat.addPage")}
+                onClick={() => fileInput.current?.click()}
+                className="flex size-16 shrink-0 items-center justify-center rounded-lg border border-dashed text-muted-foreground hover:bg-muted"
               >
-                <X className="size-3.5" />
+                <Plus className="size-5" />
               </button>
             )}
           </div>
+          {attachments.length > 1 && (
+            <p className="pt-1.5 text-[11px] leading-snug text-muted-foreground">
+              {t("chat.pagesNote", { count: attachments.length })}
+            </p>
+          )}
         </div>
        )}
        <div className="flex items-end gap-1.5">
@@ -417,11 +538,9 @@ function Composer({ onSent }: { onSent: () => void }) {
           ref={fileInput}
           type="file"
           accept="image/*,application/pdf"
+          multiple
           className="hidden"
-          onChange={(e) => {
-            const f = e.target.files?.[0];
-            if (f) void attach(f);
-          }}
+          onChange={(e) => attach(Array.from(e.target.files ?? []))}
         />
         <Button
           type="button"
@@ -443,14 +562,14 @@ function Composer({ onSent }: { onSent: () => void }) {
             }
           }}
           rows={1}
-          placeholder={t(attachment ? "chat.notePlaceholder" : "chat.placeholder")}
+          placeholder={t(attachments.length ? "chat.notePlaceholder" : "chat.placeholder")}
           className="max-h-32 min-h-9 flex-1 resize-none border-0 bg-transparent text-base shadow-none focus-visible:ring-0 sm:text-sm dark:bg-transparent"
         />
         <Button
           type="submit"
           size="icon-lg"
           aria-label={t("chat.send")}
-          disabled={sending || (!attachment && !text.trim())}
+          disabled={sending || (!attachments.length && !text.trim())}
         >
           {sending ? <Loader2 className="animate-spin" /> : <SendHorizontal />}
         </Button>

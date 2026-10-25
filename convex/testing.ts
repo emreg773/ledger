@@ -18,14 +18,25 @@ async function findOwner(ctx: QueryCtx, email?: string) {
 
 // Test harness helpers. Internal only; call with `npx convex run`.
 
+/** An upload URL without a signed-in owner (documents:generateUploadUrl needs one). */
+export const uploadUrl = internalMutation({
+  args: {},
+  handler: async (ctx) => await ctx.storage.generateUploadUrl(),
+});
+
 /**
  * Runs extraction on a stored file and prints the JSON. Writes nothing.
  * npx convex run testing:extractStorageId '{"storageId":"...","mimeType":"image/jpeg"}'
+ * Add "extraPages":[{"storageId":"...","mimeType":"..."}] for a multi-page document.
  */
 export const extractStorageId = internalAction({
-  args: { storageId: v.id("_storage"), mimeType: v.string() },
-  handler: async (ctx, { storageId, mimeType }) => {
-    const extraction = await extractFromStorage(ctx, storageId, mimeType);
+  args: {
+    storageId: v.id("_storage"),
+    mimeType: v.string(),
+    extraPages: v.optional(v.array(v.object({ storageId: v.id("_storage"), mimeType: v.string() }))),
+  },
+  handler: async (ctx, { storageId, mimeType, extraPages }) => {
+    const extraction = await extractFromStorage(ctx, [{ storageId, mimeType }, ...(extraPages ?? [])]);
     console.log(JSON.stringify(extraction, null, 2));
     return extraction;
   },

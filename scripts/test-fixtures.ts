@@ -4,6 +4,9 @@
  *   npm run test:fixtures              # photos + PDFs
  *   npm run test:fixtures -- cp14      # only files whose path contains "cp14"
  *
+ * A key with "+" sends several files as the pages of one document, as the web
+ * composer does when the owner attaches more than one file.
+ *
  * Uploads each fixture to Convex storage, runs the internal extraction action
  * (testing:extractStorageId) via `npx convex run`, and compares the result with
  * the expected values from fixtures/README.md (encoded below by hand).
@@ -57,6 +60,8 @@ const FIXTURES: Record<string, Check[]> = {
   // Single pages of a 2-page letter: only check what that page can show.
   "photos/972cg_photo_page1.jpg": [is("docType", "IRS_972CG")],
   "photos/972cg_photo_page2.jpg": [],
+  // Both pages sent together: one document, so the full-letter checks apply.
+  "photos/972cg_photo_page1.jpg+photos/972cg_photo_page2.jpg": N972CG,
   "photos/inspection_yellow_photo.jpg": INSPECTION,
   "pdf/inspection_yellow.pdf": INSPECTION,
   "photos/scam_irs_photo.jpg": [
@@ -91,19 +96,25 @@ function convexRun(fn: string, args: object = {}): unknown {
   return JSON.parse(out);
 }
 
-async function runFixture(file: string, checks: Check[]) {
-  const fullPath = path.join("fixtures", file);
+async function upload(file: string) {
   const mimeType = MIME[path.extname(file)];
-  const uploadUrl = convexRun("documents:generateUploadUrl") as string;
+  const uploadUrl = convexRun("testing:uploadUrl") as string;
   const res = await fetch(uploadUrl, {
     method: "POST",
     headers: { "Content-Type": mimeType },
-    body: readFileSync(fullPath),
+    body: readFileSync(path.join("fixtures", file)),
   });
   if (!res.ok) throw new Error(`upload failed: ${res.status}`);
   const { storageId } = (await res.json()) as { storageId: string };
+  return { storageId, mimeType };
+}
 
-  const extraction = convexRun("testing:extractStorageId", { storageId, mimeType }) as Extraction;
+async function runFixture(file: string, checks: Check[]) {
+  const [first, ...extraPages] = await Promise.all(file.split("+").map(upload));
+  const extraction = convexRun("testing:extractStorageId", {
+    ...first,
+    ...(extraPages.length ? { extraPages } : {}),
+  }) as Extraction;
   const results = [...checks, NO_FULL_EIN].map((c) => {
     let pass = false;
     try {

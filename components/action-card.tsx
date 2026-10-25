@@ -33,6 +33,7 @@ export function ActionCard({ actionId }: { actionId: string }) {
   const approve = useMutation(api.actions.approve);
   const reject = useMutation(api.actions.reject);
   const markDone = useMutation(api.actions.markDone);
+  const reopen = useMutation(api.actions.reopen);
 
   if (action === undefined) return <CardShell><Loader2 className="size-4 animate-spin" /></CardShell>;
   if (action === null) return null;
@@ -43,6 +44,7 @@ export function ActionCard({ actionId }: { actionId: string }) {
       onApprove={() => approve({ actionId: id })}
       onReject={() => reject({ actionId: id })}
       onMarkDone={() => markDone({ actionId: id })}
+      onUndo={() => reopen({ actionId: id })}
     />
   );
 }
@@ -51,12 +53,15 @@ type Handlers = {
   onApprove: () => Promise<unknown>;
   onReject: () => Promise<unknown>;
   onMarkDone: () => Promise<unknown>;
+  /** Undo "Mark done" on an owner task. */
+  onUndo?: () => Promise<unknown>;
 };
 
 /** Pure view, so the /dev preview can render every state from mock data. */
 export function ActionCardView({ action, ...handlers }: { action: ActionView } & Handlers) {
   if (action.type === "pay_bill") return <PayBillCard action={action} {...handlers} />;
-  if (action.type === "owner_task") return <OwnerTaskCard action={action} {...handlers} />;
+  // Keyed by status: a fresh card (and tap guard) after Mark done or Undo.
+  if (action.type === "owner_task") return <OwnerTaskCard key={action.status} action={action} {...handlers} />;
   return <GenericCard action={action} />;
 }
 
@@ -203,7 +208,7 @@ function PayBillCard({ action, onApprove, onReject }: { action: ActionView } & H
   );
 }
 
-function OwnerTaskCard({ action, onMarkDone }: { action: ActionView } & Handlers) {
+function OwnerTaskCard({ action, onMarkDone, onUndo }: { action: ActionView } & Handlers) {
   const { t } = useI18n();
   const { busy, failed, run } = useOnce();
   const p = action.payload as OwnerTaskPayload;
@@ -220,8 +225,16 @@ function OwnerTaskCard({ action, onMarkDone }: { action: ActionView } & Handlers
   if (action.status === "executed") {
     return (
       <CardShell>
-        <div className="text-sm font-medium text-emerald-700 dark:text-emerald-400">{t("action.done")}</div>
-        <div className="mt-1 text-sm text-muted-foreground">{p.instructions}</div>
+        <div className="flex items-center justify-between gap-2">
+          <div className="text-sm font-medium text-emerald-700 dark:text-emerald-400">{t("action.done")}</div>
+          {onUndo && (
+            <Button variant="ghost" size="sm" disabled={busy} onClick={() => run(onUndo)}>
+              {t("action.undo")}
+            </Button>
+          )}
+        </div>
+        <div className="mt-1 text-sm text-muted-foreground line-through">{p.instructions}</div>
+        {failed && <div className="mt-2 text-xs text-destructive">{t("action.error")}</div>}
       </CardShell>
     );
   }
@@ -232,6 +245,13 @@ function OwnerTaskCard({ action, onMarkDone }: { action: ActionView } & Handlers
         {t("action.task")}
       </div>
       <p className="mt-1 text-sm">{p.instructions}</p>
+      {p.checklist && p.checklist.length > 0 && (
+        <ul className="mt-2 list-disc space-y-1 pl-5 text-sm">
+          {p.checklist.map((item, i) => (
+            <li key={i}>{item}</li>
+          ))}
+        </ul>
+      )}
 
       {p.callScript && (
         <Collapsible className="mt-3 rounded-lg border">

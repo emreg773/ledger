@@ -2,7 +2,7 @@
 
 import { useState, type ComponentProps } from "react";
 import { useQuery } from "convex/react";
-import { Camera, ChevronDown, FileText, ListChecks, MessageSquare, type LucideIcon } from "lucide-react";
+import { ChevronDown, FileText, ListChecks, MessageSquare, type LucideIcon } from "lucide-react";
 import { api } from "@/convex/_generated/api";
 import type { Doc } from "@/convex/_generated/dataModel";
 import type { NotificationView } from "@/convex/notifications";
@@ -16,7 +16,6 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { localeFor } from "@/lib/format";
 import { docTypeName, useI18n, type MessageKey } from "@/lib/i18n";
 import type { ActionView, CaseView } from "@/lib/contract";
-import type { usePush } from "@/lib/push";
 import { useToday } from "@/lib/use-today";
 import { cn } from "@/lib/utils";
 
@@ -45,25 +44,19 @@ function groupFiles(documents: Docs) {
 }
 
 /** Opens the file picker in the composer (components/chat.tsx listens). */
-export function startUpload() {
-  window.dispatchEvent(new Event("ledger:upload"));
-}
-
 export function Home({
   owner,
   cases,
   documents,
-  hasConversation,
-  push,
-  onOpenConversation,
+  conversationCount,
+  onOpenConversations,
   preview,
 }: {
   owner: Doc<"owners">;
   cases: CaseView[];
   documents: Docs;
-  hasConversation: boolean;
-  push: ReturnType<typeof usePush>;
-  onOpenConversation: () => void;
+  conversationCount: number;
+  onOpenConversations: () => void;
   /** /dev only: mock data instead of the backend. */
   preview?: {
     openTasks: ActionView[];
@@ -94,7 +87,7 @@ export function Home({
 
       <div className="grid grid-cols-1 gap-4 lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(0,1fr)_360px]">
         <div className="flex min-w-0 flex-col gap-3 lg:min-h-0">
-          <NotificationBanner push={push} />
+          <NotificationBanner preview={Boolean(preview)} />
           <section
             className="ledger-card flex max-h-[70dvh] min-h-80 min-w-0 flex-col lg:max-h-none lg:min-h-0 lg:flex-1"
             aria-label={t("notif.title")}
@@ -107,17 +100,11 @@ export function Home({
         </div>
 
         <div className="order-first flex min-w-0 flex-col gap-4 lg:order-none lg:min-h-0 lg:gap-3">
-          <DeadlineCalendar cases={cases} filter={owner.calendarFilter} preview={preview?.calendar} />
+          <DeadlineCalendar cases={cases} tasks={openTasks} filter={owner.calendarFilter} preview={preview?.calendar} />
           <div className="grid shrink-0 grid-cols-2 gap-3 lg:gap-2">
-            <Tile icon={Camera} label="home.upload" hint="home.uploadHint" primary onClick={startUpload} />
+            <Tile icon={MessageSquare} label="home.conversations" count={conversationCount} onClick={onOpenConversations} />
             <Tile icon={FileText} label="home.files" count={documents.length} onClick={() => setSheet("files")} />
             <Tile icon={ListChecks} label="home.tasks" count={openTasks.length} onClick={() => setSheet("tasks")} />
-            <Tile
-              icon={MessageSquare}
-              label="home.conversation"
-              hint={hasConversation ? undefined : "home.conversationEmpty"}
-              onClick={onOpenConversation}
-            />
           </div>
         </div>
       </div>

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import {
   Bell,
+  BellRing,
   CircleCheck,
   ClipboardList,
   Mail,
@@ -40,8 +41,11 @@ const CATEGORIES: { value: Category; label: MessageKey; icon: LucideIcon; tone: 
   { value: "alert", label: "notif.cat.alert", icon: TriangleAlert, tone: "text-destructive" },
   { value: "letter", label: "notif.cat.letter", icon: Mail, tone: "text-sky-600 dark:text-sky-400" },
   { value: "done", label: "notif.cat.done", icon: CircleCheck, tone: "text-emerald-600 dark:text-emerald-400" },
+  { value: "reminder", label: "notif.cat.reminder", icon: BellRing, tone: "text-violet-600 dark:text-violet-400" },
 ];
-const categoryInfo = (c: Category) => CATEGORIES.find((x) => x.value === c)!;
+// A category this list doesn't know yet shows as a plain bell instead of breaking the page.
+const categoryInfo = (c: Category) =>
+  CATEGORIES.find((x) => x.value === c) ?? { value: c, label: "notif.cat.all" as MessageKey, icon: Bell, tone: "text-muted-foreground" };
 
 /** Asks the chat to scroll to a case's letter (components/chat.tsx listens). */
 export function openCase(caseId: string) {
@@ -258,6 +262,8 @@ function Item({
   const { t, language } = useI18n();
   const info = categoryInfo(n.category);
   const unread = n.readAt === undefined;
+  // "Action needed" whose to-dos are all done (or declined): crossed out and greyed, not a new "Done" row.
+  const finished = n.category === "needs_action" && n.case !== null && !n.case.hasPendingAction;
   const due = pinned && n.case?.deadline && today ? countdown(n.case.deadline, language, today) : null;
 
   return (
@@ -267,20 +273,21 @@ function Item({
         onClick={() => onSelect(n)}
         className={cn(
           "flex w-full items-start gap-3 rounded-lg px-2 py-2.5 text-left transition-colors hover:bg-muted",
+          finished && "opacity-55",
           pinned && "border border-amber-300 bg-amber-50 hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-950/40 dark:hover:bg-amber-950/60",
         )}
       >
-        <info.icon className={cn("mt-0.5 size-4 shrink-0", info.tone)} aria-hidden />
+        <info.icon className={cn("mt-0.5 size-4 shrink-0", finished ? "text-muted-foreground" : info.tone)} aria-hidden />
         <div className="min-w-0 flex-1">
           <div className="flex items-baseline justify-between gap-2">
-            <span className={cn("truncate text-sm", unread ? "font-semibold" : "font-medium")}>
+            <span className={cn("truncate text-sm", unread ? "font-semibold" : "font-medium", finished && "line-through")}>
               {n.title}
             </span>
             <time className="shrink-0 text-xs text-muted-foreground" dateTime={new Date(n.createdAt).toISOString()}>
               {now !== null && timeAgo(n.createdAt, Math.max(now, n.createdAt), language)}
             </time>
           </div>
-          <p className="line-clamp-2 text-sm text-muted-foreground">{n.body}</p>
+          <p className={cn("line-clamp-2 text-sm text-muted-foreground", finished && "line-through")}>{n.body}</p>
           <div className="mt-1 flex flex-wrap items-center gap-x-2 text-xs">
             <span className="text-muted-foreground">{t(info.label)}</span>
             {due && (

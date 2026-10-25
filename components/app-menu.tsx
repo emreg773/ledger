@@ -32,20 +32,18 @@ import { api } from "@/convex/_generated/api";
 import { errorMessage } from "@/lib/errors";
 import { useI18n } from "@/lib/i18n";
 import { DemoClockDialog } from "@/components/demo-clock";
-import type { usePush } from "@/lib/push";
+import { useTelegram } from "@/components/notifications";
 
-// Header menu (docs/ledger-step3-B.md, Section 4): language, notifications,
-// start over, delete account, sign out.
+// Header menu (docs/ledger-step3-B.md, Section 4): language, notifications
+// (Telegram), start over, delete account, sign out.
 
 type Confirm = "reset" | "delete" | null;
 
 export function AppMenu({
   owner,
-  push,
   preview = false,
 }: {
   owner: Doc<"owners">;
-  push: ReturnType<typeof usePush>;
   /** /dev only: don't query the backend. */
   preview?: boolean;
 }) {
@@ -54,24 +52,7 @@ export function AppMenu({
   const setLanguage = useMutation(api.owners.setLanguage);
   const setCalendarFilter = useMutation(api.owners.setCalendarFilter);
   const calendar = useQuery(api.googleCalendar.status, preview ? "skip" : {});
-  const telegram = useQuery(api.telegram.status, preview ? "skip" : {});
-  const createTelegramLink = useMutation(api.telegram.createLinkCode);
-  const disconnectTelegram = useMutation(api.telegram.disconnect);
-
-  async function connectTelegram() {
-    setNote(null);
-    // Open the tab now, while the tap still counts, and fill in the link after.
-    const tab = window.open("", "_blank");
-    try {
-      const url = await createTelegramLink({});
-      if (tab) tab.location.replace(url);
-      else window.location.assign(url);
-    } catch (e) {
-      tab?.close();
-      setNote(errorMessage(t, e, "action.error"));
-    }
-  }
-  const sendTest = useMutation(api.push.sendTest);
+  const telegram = useTelegram({ preview });
   const resetMyData = useMutation(api.owners.resetMyData);
   const deleteMyAccount = useMutation(api.owners.deleteMyAccount);
   const [confirm, setConfirm] = useState<Confirm>(null);
@@ -99,25 +80,6 @@ export function AppMenu({
       setTyped("");
     }
   }
-
-  async function toggleNotifications() {
-    setNote(null);
-    try {
-      if (push.state === "on") await push.disable();
-      else await push.enable();
-    } catch (e) {
-      console.error(e);
-      setNote(t("push.failed"));
-    }
-  }
-
-  const notificationsLabel =
-    push.state === "on"
-      ? t("menu.notificationsOff")
-      : push.state === "denied"
-        ? t("push.deniedTitle")
-        : t("menu.notificationsOn");
-  const canToggle = push.state === "on" || push.state === "default";
 
   return (
     <>
@@ -156,48 +118,18 @@ export function AppMenu({
               </DropdownMenuGroup>
             </>
           )}
-          {push.state !== "unsupported" && push.state !== "loading" && (
+          {telegram.available && (
             <>
               <DropdownMenuSeparator />
               <DropdownMenuGroup>
                 <DropdownMenuLabel>{t("menu.notifications")}</DropdownMenuLabel>
-                {push.state === "needs_install" ? (
-                  <DropdownMenuItem disabled>{t("push.installTitle")}</DropdownMenuItem>
-                ) : (
-                  <DropdownMenuItem
-                    disabled={!canToggle || push.busy}
-                    onClick={() => void toggleNotifications()}
-                  >
-                    {notificationsLabel}
-                  </DropdownMenuItem>
-                )}
-                {push.state === "on" && (
-                  <DropdownMenuItem
-                    onClick={() => {
-                      setNote(null);
-                      sendTest({}).catch((e) => setNote(errorMessage(t, e, "push.failed")));
-                    }}
-                  >
-                    {t("menu.sendTest")}
-                  </DropdownMenuItem>
-                )}
-              </DropdownMenuGroup>
-            </>
-          )}
-          {telegram?.available && (
-            <>
-              <DropdownMenuSeparator />
-              <DropdownMenuGroup>
-                <DropdownMenuLabel>Telegram</DropdownMenuLabel>
                 {telegram.linked ? (
                   <>
                     <DropdownMenuItem disabled>{t("telegram.connected")}</DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => void disconnectTelegram({})}>
-                      {t("telegram.disconnect")}
-                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={telegram.disconnect}>{t("telegram.disconnect")}</DropdownMenuItem>
                   </>
                 ) : (
-                  <DropdownMenuItem onClick={() => void connectTelegram()}>{t("telegram.connect")}</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => void telegram.connect()}>{t("telegram.connect")}</DropdownMenuItem>
                 )}
               </DropdownMenuGroup>
             </>

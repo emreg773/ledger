@@ -225,31 +225,43 @@ function toStoredExtraction(raw: ModelExtraction): Extraction {
 
 export const SUPPORTED_TYPES = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
 
-/** Pure extraction: reads a stored file and returns the masked extraction. No db writes. */
+export type StoredFile = { storageId: Id<"_storage">; mimeType: string };
+
+/**
+ * Pure extraction: reads a document's stored files (its pages, in order) and
+ * returns the masked extraction. No db writes.
+ */
 export async function extractFromStorage(
   ctx: ActionCtx,
-  storageId: Id<"_storage">,
-  mimeType: string,
+  files: StoredFile[],
   hint?: string,
 ): Promise<Extraction> {
-  if (!SUPPORTED_TYPES.includes(mimeType)) {
-    throw new Error(`Unsupported file type: ${mimeType}`);
-  }
-  const blob = await ctx.storage.get(storageId);
-  if (!blob) throw new Error(`File not found in storage: ${storageId}`);
-  const bytes = new Uint8Array(await blob.arrayBuffer());
+  const parts = await Promise.all(
+    files.map(async ({ storageId, mimeType }) => {
+      if (!SUPPORTED_TYPES.includes(mimeType)) {
+        throw new Error(`Unsupported file type: ${mimeType}`);
+      }
+      const blob = await ctx.storage.get(storageId);
+      if (!blob) throw new Error(`File not found in storage: ${storageId}`);
+      return { data: new Uint8Array(await blob.arrayBuffer()), mediaType: mimeType };
+    }),
+  );
 
+  const ask =
+    files.length > 1
+      ? `Extract the data from this document. The ${files.length} files above are its pages, in order; together they are one document.`
+      : "Extract the data from this document.";
   // AI SDK 7 uses "file" parts for both images and PDFs ("image" is deprecated).
   const messages: ModelMessage[] = [
     {
       role: "user",
       content: [
-        { type: "file", data: bytes, mediaType: mimeType },
+        ...parts.map((p) => ({ type: "file" as const, ...p })),
         {
           type: "text",
           text: hint
-            ? `Extract the data from this document. The owner's note, a hint only (classify by what is printed): ${hint}`
-            : "Extract the data from this document.",
+            ? `${ask} The owner's note, a hint only (classify by what is printed): ${hint}`
+            : ask,
         },
       ],
     },
@@ -278,7 +290,7 @@ export async function runExtraction(
 ): Promise<ExtractionRun> {
   const doc = await ctx.runMutation(internal.documents.markExtracting, { documentId });
   try {
-    const extraction = await extractFromStorage(ctx, doc.storageId, doc.mimeType, doc.hint);
+    const extraction = await extractFromStorage(ctx, doc.files, doc.hint);
     const { caseId }: { caseId: Id<"cases"> | null } = await ctx.runMutation(
       internal.documents.saveExtraction,
       {

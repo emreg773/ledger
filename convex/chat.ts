@@ -5,6 +5,7 @@ import { components, internal } from "./_generated/api";
 import { mutation, query } from "./_generated/server";
 import { requireOwner, viewerOwner } from "./access";
 import { checkOwnerLimit } from "./limits";
+import { ownedThread, startConversation, touchConversation } from "./conversations";
 
 /** Messages for the chat UI (shape required by useUIMessages). */
 export const listThreadMessages = query({
@@ -14,37 +15,45 @@ export const listThreadMessages = query({
     streamArgs: vStreamArgs,
   },
   handler: async (ctx, args) => {
-    // useUIMessages passes the threadId, so check it's the viewer's own thread.
+    // useUIMessages passes the threadId, so check it's one of the viewer's conversations.
     const owner = await viewerOwner(ctx);
-    if (!owner || owner.agentThreadId !== args.threadId) {
-      throw new ConvexError({ code: "not_found", message: "Not found" });
-    }
+    if (!owner) throw new ConvexError({ code: "not_found", message: "Not found" });
+    await ownedThread(ctx, owner, args.threadId);
     const paginated = await listUIMessages(ctx, components.agent, args);
     const streams = await syncStreams(ctx, components.agent, args);
     return { ...paginated, streams };
   },
 });
 
-/** A typed message from the owner. Saved now, answered in the background. */
+/**
+ * A typed message from the owner. Saved now, answered in the background.
+ * Inside an open conversation (threadId) it continues it; otherwise it starts a
+ * new one. Returns the conversation's threadId.
+ */
 export const sendMessage = mutation({
   // TODO(step3): ownerId is ignored and goes away once Track B's UI stops sending it.
-  args: { text: v.string(), ownerId: v.optional(v.id("owners")) },
-  handler: async (ctx, { text }) => {
+  args: { text: v.string(), threadId: v.optional(v.string()), ownerId: v.optional(v.id("owners")) },
+  handler: async (ctx, { text, threadId: openThread }) => {
     const owner = await requireOwner(ctx);
     const ownerId = owner._id;
     const trimmed = text.trim();
     if (!trimmed) return null;
     await checkOwnerLimit(ctx, ownerId, "chatMessage");
 
+    const threadId = openThread
+      ? await ownedThread(ctx, owner, openThread)
+      : await startConversation(ctx, ownerId, { title: trimmed });
+    if (openThread) await touchConversation(ctx, threadId);
     const { messageId } = await saveMessage(ctx, components.agent, {
-      threadId: owner.agentThreadId,
+      threadId,
       userId: ownerId,
       prompt: trimmed,
     });
     await ctx.scheduler.runAfter(0, internal.agent.respond, {
       ownerId,
+      threadId,
       promptMessageId: messageId,
     });
-    return null;
+    return threadId;
   },
 });
