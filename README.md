@@ -2,7 +2,7 @@
 
 A multilingual AI agent for immigrant small business owners. Snap a photo of a government letter; Ledger reads it, explains it in your language, and does the follow-up work. Built at Cal Hacks 13.0.
 
-Current status: **Step 3 of 5 is live** at **https://ledger-ten-peach.vercel.app**: Google sign-in, one account per business, a sandbox bank per user, and web push. Reports: [STEP1_REPORT.md](STEP1_REPORT.md), [STEP2_REPORT.md](STEP2_REPORT.md), [STEP3_REPORT.md](STEP3_REPORT.md). Step 3 briefs: [docs/ledger-step3-A.md](docs/ledger-step3-A.md) (backend) and [docs/ledger-step3-B.md](docs/ledger-step3-B.md) (frontend and deploy).
+Current status: **Step 3 of 5 is live** at **https://ledger-ten-peach.vercel.app**: Google sign-in, one account per business, a sandbox bank per user, and web push. Reports: [STEP1_REPORT.md](STEP1_REPORT.md), [STEP2_REPORT.md](STEP2_REPORT.md), [STEP3_REPORT.md](STEP3_REPORT.md), [STEP3.5_REPORT.md](STEP3.5_REPORT.md) (notification history, Google Calendar). Step 3 briefs: [docs/ledger-step3-A.md](docs/ledger-step3-A.md) (backend) and [docs/ledger-step3-B.md](docs/ledger-step3-B.md) (frontend and deploy).
 
 ## Stack
 
