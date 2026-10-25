@@ -209,9 +209,11 @@ function PayBillCard({ action, onApprove, onReject }: { action: ActionView } & H
 }
 
 function OwnerTaskCard({ action, onMarkDone, onUndo }: { action: ActionView } & Handlers) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const { busy, failed, run } = useOnce();
   const p = action.payload as OwnerTaskPayload;
+  // English owners read the English script only; older tasks may still carry a copy of it as "translated".
+  const translated = language !== "en" && p.callScript?.translated?.trim() !== p.callScript?.en.trim() ? p.callScript?.translated : undefined;
 
   if (action.status === "rejected") {
     return (
@@ -261,7 +263,7 @@ function OwnerTaskCard({ action, onMarkDone, onUndo }: { action: ActionView } & 
           </CollapsibleTrigger>
           <CollapsibleContent className="space-y-3 px-3 pb-3">
             <Script label={t("action.scriptEnglish")} text={p.callScript.en} />
-            <Script label={t("action.scriptTranslated")} text={p.callScript.translated} />
+            {translated && <Script label={t("action.scriptTranslated")} text={translated} />}
           </CollapsibleContent>
         </Collapsible>
       )}

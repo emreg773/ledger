@@ -22,11 +22,24 @@ export const listForOwner = query({
   handler: async (ctx) => {
     const owner = await viewerOwner(ctx);
     if (!owner) return [];
-    return await ctx.db
+    const cases = await ctx.db
       .query("cases")
       .withIndex("by_owner", (q) => q.eq("ownerId", owner._id))
       .order("desc")
       .take(50);
+    // hasActions: Ledger proposed something for this case. Its to-dos then stand
+    // in for its deadline on the calendar, and it leaves the calendar once
+    // they're handled.
+    return await Promise.all(
+      cases.map(async (c) => ({
+        ...c,
+        hasActions:
+          (await ctx.db
+            .query("actions")
+            .withIndex("by_case", (q) => q.eq("caseId", c._id))
+            .first()) !== null,
+      })),
+    );
   },
 });
 

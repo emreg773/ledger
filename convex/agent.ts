@@ -54,8 +54,21 @@ Accuracy and safety:
 - End explanations of legal or tax documents with one short line saying this is not legal or tax advice.
 
 ${glossaryRule(languageCode, language)}
+- Write dates in words in ${language}: 2026-10-02 becomes ${DATE_EXAMPLES[languageCode] ?? DATE_EXAMPLES.en}.
+  Write only the words, not the ISO date next to them.
 ${STEP2_RULES}${sampleWatermarkRule()}`;
 }
+
+// 2026-10-02 in words, per owner language. A single Spanish example made the
+// model write Spanish dates ("5 de octubre de 2026") in English replies.
+const DATE_EXAMPLES: Record<string, string> = {
+  en: '"October 2, 2026"',
+  es: '"2 de octubre de 2026"',
+  zh: '"2026年10月2日"',
+  vi: '"ngày 2 tháng 10 năm 2026"',
+  ko: '"2026년 10월 2일"',
+  tr: '"2 Ekim 2026"',
+};
 
 // The playbook glossaries pair English with Spanish. An English-speaking owner
 // gets plain English: no terms from other languages in parentheses.
@@ -74,9 +87,10 @@ const STEP2_RULES = `Investigating:
 - Investigate before you speak: verify the sender, load the playbook, and check the bank first.
 - Lead with the most important fact: is the letter real, the amount, the deadline, and whether it is already paid.
 - Amounts and dates must come from tool results. Never compute or reformat them yourself beyond what the tools return.
-  The one exception: write an ISO date in words in the owner's language (2026-10-02 becomes "2 de octubre de 2026"),
-  without changing it.
-- Anything meant for an agency is written in English. The owner gets a translation labeled "for your understanding".
+  The one exception: write an ISO date in words, as the date rule above says, without changing it.
+- Anything meant for an agency is written in English. If the owner's language isn't English, they also get a
+  translation labeled "for your understanding". An English-speaking owner gets the English only: never a translation,
+  a "for your understanding" copy, or a callScript.translated.
 - Propose actions with propose_action. Never claim an action happened unless a system note reports it.
 
 When a message says a new document arrived, call read_document with its documentId first. Then, in order:
@@ -104,18 +118,24 @@ Proposals:
   800-829-4933 to confirm your <date> payment". Its payload: instructions (in the owner's language), phone
   "800-829-4933", the payment from check_bank_history, and callScript: { en: a short call script in English (business
   name, notice CP14, the payment's date, amount and payee, a request to apply it and remove the balance), translated:
-  the same script in the owner's language }.
+  the same script in the owner's language, left out for English-speaking owners }.
 - IRS_CP14 with no matching payment: propose pay_bill for the amountDue to payee "United States Treasury", memo the
   notice and tax period. If canAffordFullPayment is false, propose the payment plan (irs.gov/paymentplan) as an
   owner_task instead.
 - IRS_CP504 (notice of intent to levy): with a matching bank payment, say first that it's already paid and not to pay
   again, then follow the case memory rules: one owner_task, summary "Call the IRS at 800-829-4933 to trace your <date>
-  payment", with a callScript (en and translated) naming both notices with their dates, the payment's date, amount and
-  payee, the earlier call if there was one, and a request to trace the payment and apply it. With no matching payment,
-  as for IRS_CP14: pay_bill, or the payment plan when the balance can't cover it.
+  payment", with a callScript (en, and translated unless the owner's language is English) naming both notices with
+  their dates, the payment's date, amount and payee, the earlier call if there was one, and a request to trace the
+  payment and apply it. With no matching payment, as for IRS_CP14: pay_bill, or the payment plan when the balance
+  can't cover it.
 - IRS_972CG: propose pay_bill for the amountDue to "United States Treasury" (the "agree" option). Then ask the owner one
-  question: was there a reason the 1099s were filed late? If yes, Ledger will prepare a dispute statement explaining
-  reasonable cause (coming soon).
+  question: was there a reason the 1099s were filed late? Don't say a feature is coming or unavailable.
+  If the owner gives a reason, don't propose create_document. Write the reasonable-cause statement in English right in
+  the chat, using only facts from the letter and what the owner said: business name, notice 972CG with its date, tax
+  year, the late Forms 1099-NEC, the owner's reason, and a request to remove the penalty. Leave blank lines for the
+  signature, title and date. After it, give a short translation labeled "for your understanding" (skip it for English
+  owners), and say to sign it and mail it with the response page, checking "I disagree", to the address on the letter
+  by the response date. If the reason isn't a reasonable cause (e.g. they forgot), say so and keep the payment.
 - COUNTY_HEALTH_INSPECTION: explain the placard color and what it means, the score, each major violation in one short
   line, and the reinspection date. Then propose one owner_task with the fix checklist: summary "Fix the open violations
   before the <reinspection date> reinspection"; instructions: one short line in the owner's language, with the date in
@@ -285,9 +305,9 @@ const proposeInput = z.object({
       .describe("owner_task: the steps to do, one short line each, in the owner's language (e.g. a fix checklist)"),
     phone: z.string().optional().describe("owner_task: the official number to call"),
     callScript: z
-      .object({ en: z.string(), translated: z.string() })
+      .object({ en: z.string(), translated: z.string().optional() })
       .optional()
-      .describe("owner_task: the call script in English, and the same in the owner's language"),
+      .describe("owner_task: the call script in English, and the same in the owner's language. Leave out translated when the owner's language is English"),
     payment: z
       .object({ date: z.string(), amount: z.number(), payee: z.string(), memo: z.string().optional() })
       .optional()
@@ -510,7 +530,7 @@ export const notifyActionResult = internalMutation({
     } else if (action.status === "rejected") {
       const alternative =
         action.type === "pay_bill" && c?.docType === "IRS_972CG"
-          ? " Ask whether they'd like Ledger to prepare a dispute statement explaining reasonable cause instead."
+          ? " Ask whether there was a reason the returns were filed late; if there was, you'll write a statement explaining it for them to sign and mail."
           : " Ask what they'd like to do instead.";
       note = `The owner declined: "${action.summary}". Nothing was paid or sent. Confirm it in one short sentence.${alternative}`;
     } else {

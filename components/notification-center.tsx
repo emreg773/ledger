@@ -130,6 +130,7 @@ export function NotificationList({
   const items = previewItems
     ? previewItems.filter(
         (n) =>
+          !(n.category === "needs_action" && n.case && !n.case.hasPendingAction) &&
           (!category || n.category === category) &&
           (!search || n.searchText.toLowerCase().includes(search.toLowerCase())),
       )
@@ -262,8 +263,6 @@ function Item({
   const { t, language } = useI18n();
   const info = categoryInfo(n.category);
   const unread = n.readAt === undefined;
-  // "Action needed" whose to-dos are all done (or declined): crossed out and greyed, not a new "Done" row.
-  const finished = n.category === "needs_action" && n.case !== null && !n.case.hasPendingAction;
   const due = pinned && n.case?.deadline && today ? countdown(n.case.deadline, language, today) : null;
 
   return (
@@ -273,21 +272,20 @@ function Item({
         onClick={() => onSelect(n)}
         className={cn(
           "flex w-full items-start gap-3 rounded-lg px-2 py-2.5 text-left transition-colors hover:bg-muted",
-          finished && "opacity-55",
           pinned && "border border-amber-300 bg-amber-50 hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-950/40 dark:hover:bg-amber-950/60",
         )}
       >
-        <info.icon className={cn("mt-0.5 size-4 shrink-0", finished ? "text-muted-foreground" : info.tone)} aria-hidden />
+        <info.icon className={cn("mt-0.5 size-4 shrink-0", info.tone)} aria-hidden />
         <div className="min-w-0 flex-1">
           <div className="flex items-baseline justify-between gap-2">
-            <span className={cn("truncate text-sm", unread ? "font-semibold" : "font-medium", finished && "line-through")}>
+            <span className={cn("truncate text-sm", unread ? "font-semibold" : "font-medium")}>
               {n.title}
             </span>
             <time className="shrink-0 text-xs text-muted-foreground" dateTime={new Date(n.createdAt).toISOString()}>
               {now !== null && timeAgo(n.createdAt, Math.max(now, n.createdAt), language)}
             </time>
           </div>
-          <p className={cn("line-clamp-2 text-sm text-muted-foreground", finished && "line-through")}>{n.body}</p>
+          <p className="line-clamp-2 text-sm text-muted-foreground">{n.body}</p>
           <div className="mt-1 flex flex-wrap items-center gap-x-2 text-xs">
             <span className="text-muted-foreground">{t(info.label)}</span>
             {due && (

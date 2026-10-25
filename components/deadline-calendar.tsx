@@ -19,7 +19,9 @@ import type { ActionView, OwnerTaskPayload, PayBillPayload } from "@/lib/contrac
 // them; a letter or a to-do opens in the chat, a Google event opens in Google
 // Calendar. Ledger only reads the Google Calendar; to-dos never go into it.
 
-type CaseRow = Pick<Doc<"cases">, "_id" | "docType" | "title" | "deadline" | "amountDue" | "status">;
+type CaseRow = Pick<Doc<"cases">, "_id" | "docType" | "title" | "deadline" | "amountDue" | "status"> & {
+  hasActions?: boolean;
+};
 type GoogleEvent = Pick<Doc<"calendarEvents">, "_id" | "title" | "date" | "time" | "htmlLink" | "business">;
 type CalendarStatus =
   | { connected: false }
@@ -48,7 +50,9 @@ export function DeadlineCalendar({
   // US calendars start on Sunday; Spanish and Turkish ones on Monday.
   const weekStart = language === "en" ? 0 : 1;
 
-  const open = cases.filter((c) => c.deadline && c.status !== "resolved");
+  // A case Ledger proposed something for shows as its to-dos instead (approve,
+  // reject or mark done), so handling them clears it from the calendar.
+  const open = cases.filter((c) => c.deadline && c.status !== "resolved" && !c.hasActions);
   const byDay = new Map<string, CaseRow[]>();
   for (const c of open) byDay.set(c.deadline!, [...(byDay.get(c.deadline!) ?? []), c]);
 
