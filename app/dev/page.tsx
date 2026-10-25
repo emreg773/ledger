@@ -9,36 +9,23 @@ import { Onboarding } from "@/components/app";
 import { AppMenu } from "@/components/app-menu";
 import { Welcome } from "@/components/chat";
 import { NotificationBanner } from "@/components/notifications";
-import type { Doc, Id } from "@/convex/_generated/dataModel";
 import { I18nProvider } from "@/lib/i18n";
-import type { PushState, usePush } from "@/lib/push";
 import type { ActionView } from "@/lib/contract";
-import { mockActions, mockCaseFor, mockCases, mockDocuments, mockEvents } from "@/lib/mocks";
+import {
+  fakePush,
+  mockActions,
+  mockCaseFor,
+  mockCases,
+  mockDocuments,
+  mockEvents,
+  mockOwner,
+} from "@/lib/mocks";
 
 // Preview of every Track B card state, from mock data shaped like the Step 2
 // contract. Lets us build and check the UI before Track A's functions land.
 // The first 972CG card is live: Approve → confirm → "Paying…" → "Paid ✓".
 
 const noop = async () => {};
-
-const mockOwner = {
-  _id: "mock_owner" as Id<"owners">,
-  _creationTime: 0,
-  name: "María López",
-  businessName: "Taquería La Esquina",
-  preferredLanguage: "es",
-  city: "Oakland",
-  county: "Alameda",
-  state: "CA",
-  agentThreadId: "mock_thread",
-} as Doc<"owners">;
-
-const fakePush = (state: PushState): ReturnType<typeof usePush> => ({
-  state,
-  busy: false,
-  enable: async () => true,
-  disable: noop,
-});
 
 export default function DevPreview() {
   const [language, setLanguage] = useState("es");

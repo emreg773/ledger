@@ -1,5 +1,7 @@
 import type { Doc, Id, TableNames } from "@/convex/_generated/dataModel";
 import type { Extraction } from "@/convex/extraction";
+import type { NotificationView } from "@/convex/notifications";
+import type { PushState, usePush } from "@/lib/push";
 import type { ActionView, CaseView, RecentEvent } from "@/lib/contract";
 
 // Mock data shaped like the Step 2 contract, for the /dev preview page.
@@ -196,3 +198,74 @@ export const mockEvents: RecentEvent[] = [
 export function mockCaseFor(caseId: RecentEvent["caseId"]): CaseView | undefined {
   return Object.values(mockCases).find((c) => c._id === caseId);
 }
+
+// Notification center preview. Today is Oct 24 in the mocks, so the CP14
+// (open task, due Nov 2) is time-sensitive and the 972CG (due Nov 19) isn't.
+const notification = (
+  n: string,
+  minutesAgo: number,
+  fields: Pick<NotificationView, "kind" | "category" | "title" | "body" | "case"> &
+    Partial<Pick<NotificationView, "caseId" | "readAt">>,
+): NotificationView => ({
+  _id: id<"notifications">(`mock_notif_${n}`),
+  _creationTime: NOW - minutesAgo * 60_000,
+  ownerId: OWNER,
+  createdAt: NOW - minutesAgo * 60_000,
+  searchText: `${fields.title} ${fields.body}`,
+  ...fields,
+});
+
+export const mockNotifications: NotificationView[] = [
+  notification("paid", 12, {
+    kind: "action_done",
+    category: "done",
+    title: "Pago realizado",
+    body: "Pagado: $520.00 de la cuenta que termina en 4417.",
+    caseId: mockCases.irs972._id,
+    case: { docType: "IRS_972CG", title: "", deadline: "2026-11-19", status: "open", hasPendingAction: false },
+  }),
+  notification("scam", 95, {
+    kind: "document_read",
+    category: "alert",
+    title: "Posible estafa",
+    body: "Ledger leyó su carta: parece una estafa. No pague.",
+    caseId: mockCases.scam._id,
+    case: { docType: "UNKNOWN", title: "Suspicious letter", status: "open", hasPendingAction: false },
+  }),
+  notification("cp14", 60 * 26, {
+    kind: "action_needed",
+    category: "needs_action",
+    title: "Necesita su decisión",
+    body: "Ledger leyó su carta del IRS: ya está pagada. Toque para revisar el siguiente paso.",
+    caseId: mockCases.cp14._id,
+    case: { docType: "IRS_CP14", title: "", deadline: "2026-11-02", status: "open", hasPendingAction: true },
+  }),
+  notification("972", 60 * 50, {
+    kind: "action_needed",
+    category: "needs_action",
+    title: "Necesita su decisión",
+    body: "Ledger leyó su carta del IRS: $520.00, vence el 19 nov. Toque para revisar el siguiente paso.",
+    caseId: mockCases.irs972._id,
+    readAt: NOW,
+    case: { docType: "IRS_972CG", title: "", deadline: "2026-11-19", status: "open", hasPendingAction: true },
+  }),
+];
+
+export const mockOwner = {
+  _id: OWNER,
+  _creationTime: 0,
+  name: "María López",
+  businessName: "Taquería La Esquina",
+  preferredLanguage: "es",
+  city: "Oakland",
+  county: "Alameda",
+  state: "CA",
+  agentThreadId: "mock_thread",
+} as Doc<"owners">;
+
+export const fakePush = (state: PushState): ReturnType<typeof usePush> => ({
+  state,
+  busy: false,
+  enable: async () => true,
+  disable: async () => {},
+});

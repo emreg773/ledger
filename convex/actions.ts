@@ -199,6 +199,20 @@ export const listForCase = query({
   },
 });
 
+/** The viewer's actions still waiting on them (approve, reject or mark done), newest first. */
+export const listOpenForOwner = query({
+  args: {},
+  handler: async (ctx) => {
+    const owner = await viewerOwner(ctx);
+    if (!owner) return [];
+    return await ctx.db
+      .query("actions")
+      .withIndex("by_owner_and_status", (q) => q.eq("ownerId", owner._id).eq("status", "proposed"))
+      .order("desc")
+      .take(50);
+  },
+});
+
 export const execute = internalAction({
   args: { actionId: v.id("actions") },
   handler: async (ctx, { actionId }) => {

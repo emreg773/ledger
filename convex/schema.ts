@@ -59,6 +59,16 @@ export const taskStatus = v.union(
   v.literal("rejected"),
 );
 
+// Notification center categories. needs_action: the owner has a decision to
+// make. alert: a suspected scam or something that failed. letter: a letter was
+// read. done: a payment or task finished.
+export const notificationCategory = v.union(
+  v.literal("needs_action"),
+  v.literal("alert"),
+  v.literal("letter"),
+  v.literal("done"),
+);
+
 export const verificationVerdict = v.union(
   v.literal("verified"),
   v.literal("suspicious"),
@@ -120,6 +130,27 @@ export default defineSchema({
   })
     .index("by_owner", ["ownerId"])
     .index("by_endpoint", ["endpoint"]),
+
+  // Every notification Ledger sends, kept for the in-app notification center,
+  // whether or not the owner has a device subscribed to push.
+  notifications: defineTable({
+    ownerId: v.id("owners"),
+    kind: v.string(), // push.ts pushKind
+    category: notificationCategory,
+    title: v.string(), // short headline, in the owner's language when it was sent
+    body: v.string(), // the push text
+    caseId: v.optional(v.id("cases")),
+    actionId: v.optional(v.id("actions")),
+    // Title, body, the English summary and the document type, so search works
+    // in the owner's language and in English.
+    searchText: v.string(),
+    createdAt: v.number(),
+    readAt: v.optional(v.number()),
+  })
+    .index("by_owner", ["ownerId", "createdAt"])
+    .index("by_owner_and_category", ["ownerId", "category", "createdAt"])
+    .index("by_owner_and_read", ["ownerId", "readAt"])
+    .searchIndex("search_text", { searchField: "searchText", filterFields: ["ownerId", "category"] }),
 
   // Step 5
   staff: defineTable({

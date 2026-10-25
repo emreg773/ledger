@@ -51,6 +51,11 @@ export async function deleteOwnerData(ctx: MutationCtx, owner: Doc<"owners">) {
     .withIndex("by_owner", (q) => q.eq("ownerId", ownerId))
     .collect();
   for (const event of events) await ctx.db.delete(event._id);
+  const notifications = await ctx.db
+    .query("notifications")
+    .withIndex("by_owner", (q) => q.eq("ownerId", ownerId))
+    .collect();
+  for (const n of notifications) await ctx.db.delete(n._id);
 }
 
 /** Everything above, plus the push subscriptions, the mock bank and the owner row. */

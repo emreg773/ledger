@@ -43,6 +43,21 @@ export function formatDateTime(ms: number, language: string): string {
   }).format(ms);
 }
 
+/** Whole days from today (midnight) to an ISO date; negative when it's past. */
+export function daysUntil(iso: string, today: Date): number {
+  return Math.round((parseIsoDate(iso).getTime() - today.getTime()) / 86_400_000);
+}
+
+/** "5 minutes ago", "yesterday", "3 days ago". */
+export function timeAgo(ms: number, now: number, language: string): string {
+  const rtf = new Intl.RelativeTimeFormat(localeFor(language), { numeric: "auto" });
+  const minutes = Math.round((ms - now) / 60_000);
+  if (Math.abs(minutes) < 60) return rtf.format(minutes, "minute");
+  const hours = Math.round(minutes / 60);
+  if (Math.abs(hours) < 24) return rtf.format(hours, "hour");
+  return rtf.format(Math.round(hours / 24), "day");
+}
+
 /**
  * Days until a deadline. Returns the localized "in 9 days" / "tomorrow" /
  * "today", or overdue: true (the caller shows its own translated "Overdue").
@@ -52,7 +67,7 @@ export function countdown(
   language: string,
   today: Date, // midnight, from useToday()
 ): { overdue: boolean; label: string } {
-  const days = Math.round((parseIsoDate(iso).getTime() - today.getTime()) / 86_400_000);
+  const days = daysUntil(iso, today);
   if (days < 0) return { overdue: true, label: "" };
   const rtf = new Intl.RelativeTimeFormat(localeFor(language), { numeric: "auto" });
   return { overdue: false, label: rtf.format(days, "day") };

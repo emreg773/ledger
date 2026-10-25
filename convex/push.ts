@@ -2,6 +2,7 @@ import { v, type Infer } from "convex/values";
 import { internal } from "./_generated/api";
 import { internalMutation, internalQuery, mutation, query, type MutationCtx } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
+import type { notificationCategory } from "./schema";
 import { requireOwner, viewerOwner } from "./access";
 import { MIN_CONFIDENCE } from "./extraction";
 
@@ -222,6 +223,35 @@ function message(
   }
 }
 
+type Category = Infer<typeof notificationCategory>;
+
+/** The notification center's category and headline for a message. */
+function heading(
+  kind: Exclude<PushKind, "test">,
+  lang: Lang,
+  c: Doc<"cases"> | null,
+  action: Doc<"actions"> | null,
+): { category: Category; title: string; titleEn: string } {
+  const pick = (category: Category, t: Record<Lang, string>) => ({ category, title: t[lang], titleEn: t.en });
+  switch (kind) {
+    case "action_needed":
+      return pick("needs_action", { en: "Action needed", es: "Necesita su decisión", tr: "Kararınız gerekiyor" });
+    case "document_failed":
+      return pick("alert", { en: "Couldn't read your document", es: "No se pudo leer su documento", tr: "Belgeniz okunamadı" });
+    case "document_read":
+      return c?.verification?.verdict === "suspicious"
+        ? pick("alert", { en: "Possible scam", es: "Posible estafa", tr: "Olası dolandırıcılık" })
+        : pick("letter", { en: "Letter read", es: "Carta leída", tr: "Mektup okundu" });
+    case "action_done":
+      if (action?.status === "failed") {
+        return pick("alert", { en: "Didn't go through", es: "No se completó", tr: "Tamamlanamadı" });
+      }
+      return action?.type === "pay_bill"
+        ? pick("done", { en: "Payment made", es: "Pago realizado", tr: "Ödeme yapıldı" })
+        : pick("done", { en: "Done", es: "Listo", tr: "Tamamlandı" });
+  }
+}
+
 async function queuePush(
   ctx: MutationCtx,
   owner: Doc<"owners">,
@@ -229,13 +259,31 @@ async function queuePush(
   c: Doc<"cases"> | null,
   action: Doc<"actions"> | null,
 ) {
+  const lang: Lang = owner.preferredLanguage === "es" || owner.preferredLanguage === "tr" ? owner.preferredLanguage : "en";
+  const { body, summary } = message(kind, lang, c, action);
+
+  // Keep every notification for the notification center, with or without a
+  // device. Test pushes aren't worth keeping.
+  if (kind !== "test") {
+    const { category, title, titleEn } = heading(kind, lang, c, action);
+    await ctx.db.insert("notifications", {
+      ownerId: owner._id,
+      kind,
+      category,
+      title,
+      body,
+      caseId: c?._id,
+      actionId: action?._id,
+      searchText: [title, body, titleEn, summary, c?.docType.replace(/_/g, " ") ?? ""].join(" "),
+      createdAt: Date.now(),
+    });
+  }
+
   const hasDevice = await ctx.db
     .query("pushSubscriptions")
     .withIndex("by_owner", (q) => q.eq("ownerId", owner._id))
     .first();
   if (!hasDevice) return;
-  const lang: Lang = owner.preferredLanguage === "es" || owner.preferredLanguage === "tr" ? owner.preferredLanguage : "en";
-  const { body, summary } = message(kind, lang, c, action);
   await ctx.scheduler.runAfter(0, internal.pushNode.send, {
     ownerId: owner._id,
     caseId: c?._id,
