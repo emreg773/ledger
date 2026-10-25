@@ -75,18 +75,21 @@ const modelExtractionSchema = z.object({
     .optional()
     .describe('e.g. "Form 941, period ending 2026-06-30"'),
   // Step 4 case memory: what ties a later notice to the same case (documents.ts
-  // caseKeyOf). Nullable rather than optional, like the inspection fields.
-  taxForm: z.string().nullable().describe('Tax form number only, e.g. "941". null if none'),
-  taxPeriodEnd: nullableDate("End of the tax period, e.g. 2026-06-30 for Q2 2026"),
-  taxYear: z.string().nullable().describe('Tax year, e.g. "2025". null if none'),
+  // caseKeyOf). Plain strings, empty when not printed: as nullable fields
+  // (anyOf string/null) these five pushed the schema past the API's limit
+  // ("The compiled grammar is too large"). toStoredExtraction() turns "" into
+  // a missing field.
+  taxForm: z.string().describe('Tax form number only, e.g. "941". Empty string if none'),
+  taxPeriodEnd: z
+    .string()
+    .describe("End of the tax period, ISO format YYYY-MM-DD, e.g. 2026-06-30 for Q2 2026. Empty string if not printed"),
+  taxYear: z.string().describe('Tax year, e.g. "2025". Empty string if none'),
   einLast4: z
     .string()
-    .nullable()
-    .describe("Last 4 digits of the EIN printed on the document, digits only. null if none"),
+    .describe("Last 4 digits of the EIN printed on the document, digits only. Empty string if none"),
   facilityId: z
     .string()
-    .nullable()
-    .describe("Health inspections: the facility or permit ID as printed. null otherwise"),
+    .describe("Health inspections: the facility or permit ID as printed. Empty string otherwise"),
   referencedNoticeDates: z
     .array(z.string())
     .describe("Dates (ISO) of earlier notices this letter mentions, e.g. a previous notice. Empty if none"),
@@ -203,7 +206,7 @@ function toStoredExtraction(raw: ModelExtraction): Extraction {
   const masked = maskDeep(raw, "") as ModelExtraction;
   const { taxForm, taxPeriodEnd, taxYear, einLast4, facilityId, ...rest } = masked;
   // Nulls become missing fields, and the EIN is never more than its last 4 digits.
-  const clean = (s: string | null) => s?.trim() || undefined;
+  const clean = (s: string) => s.trim() || undefined;
   return {
     ...rest,
     taxForm: clean(taxForm),
