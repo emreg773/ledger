@@ -4,6 +4,13 @@ A multilingual AI agent for immigrant small business owners. Snap a photo of a g
 
 Live at **https://ledger-ten-peach.vercel.app**, with the Telegram bot **@talk_to_ledger_agent**. Anyone with a Google account can sign in, set up their business, and get their own chat, sandbox bank and case history.
 
+## How we use Convex
+
+- Convex is the whole backend: schema, queries, mutations, actions, file storage and full text search.
+- The `@convex-dev/agent` component stores the agent's threads and messages; the chat streams in live.
+- HTTP actions serve the Telegram webhook and Google OAuth callback; crons and the scheduler run nudges, syncs and agent runs.
+- Chat, home, calendar, case history and notifications update live through `useQuery`. Details in [hackathon.md](hackathon.md).
+
 ## What Ledger does
 
 Ledger investigates a letter before it answers: it reads it, checks the sender against official contacts, loads the official playbook for that notice, and checks the owner's bank. Then it explains in the owner's language and proposes actions, which the owner approves on a card. The owner only snaps a photo, taps Approve or marks a task done.
