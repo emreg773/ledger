@@ -5,7 +5,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { viewerOwner } from "./access";
 import { isoDateAt, nowMs } from "./clock";
 import { GENERAL_DATES } from "./generalDates";
-import { ownerLang, queuePush, type Lang } from "./push";
+import { ownerLang, queuePush, shortDate, type Lang } from "./push";
 import { logEvent } from "./events";
 
 // Deadline reminders (Step 4 brief, Section 5). Three sources, one list:
@@ -90,52 +90,73 @@ const shiftIso = (iso: string, days: number) =>
 const daysBetween = (fromIso: string, toIso: string) =>
   Math.round((Date.parse(`${toIso}T12:00:00Z`) - Date.parse(`${fromIso}T12:00:00Z`)) / DAY_MS);
 
-const MONTHS: Record<Lang, string[]> = {
-  en: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
-  es: ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"],
-  tr: ["Oca", "Şub", "Mar", "Nis", "May", "Haz", "Tem", "Ağu", "Eyl", "Eki", "Kas", "Ara"],
-};
-function shortDate(iso: string, lang: Lang): string {
-  const [, m, d] = iso.split("-").map(Number);
-  return lang === "en" ? `${MONTHS.en[m - 1]} ${d}` : `${d} ${MONTHS[lang][m - 1]}`;
-}
 const usd = (n: number) => n.toLocaleString("en-US", { style: "currency", currency: "USD" });
 
-/** "su aviso del IRS (CP14)", "Formulario 941", or the calendar event's title. */
+/** "su aviso del IRS (CP14)", "Formulario 941", "您的 IRS 通知 (CP14)", or the calendar event's title. */
 function itemName(item: UpcomingItem, lang: Lang): string {
   if (item.source === "general") {
-    return { en: `Form ${item.form}`, es: `Formulario ${item.form}`, tr: `${item.form} formu` }[lang];
+    const f = item.form;
+    return { en: `Form ${f}`, es: `Formulario ${f}`, zh: `${f} 表格`, vi: `Mẫu ${f}`, ko: `${f} 양식` }[lang];
   }
   if (item.source === "calendar") return item.title;
   const code = item.docType?.startsWith("IRS_") ? item.docType.slice(4) : undefined;
   if (item.docType === "COUNTY_HEALTH_INSPECTION") {
-    return { en: "your health inspection", es: "su inspección de salud", tr: "sağlık denetiminiz" }[lang];
-  }
-  return code
-    ? { en: `your IRS notice (${code})`, es: `su aviso del IRS (${code})`, tr: `IRS bildiriminiz (${code})` }[lang]
-    : { en: "your letter", es: "su carta", tr: "mektubunuz" }[lang];
-}
-
-/** "vence en 2 días", "vence hoy", "venció hace 1 día", or "vence el 2 de nov." for far dates. */
-function whenText(days: number, iso: string, lang: Lang): string {
-  if (days === 0) return { en: "is due today", es: "vence hoy", tr: "son gün bugün" }[lang];
-  if (days === 1) return { en: "is due tomorrow", es: "vence mañana", tr: "son gün yarın" }[lang];
-  if (days > 1 && days <= 7) return { en: `is due in ${days} days`, es: `vence en ${days} días`, tr: `${days} gün içinde son gün` }[lang];
-  if (days < 0) {
-    const n = -days;
     return {
-      en: `was due ${n} day${n === 1 ? "" : "s"} ago`,
-      es: `venció hace ${n} día${n === 1 ? "" : "s"}`,
-      tr: `${n} gün önce son gündü`,
+      en: "your health inspection",
+      es: "su inspección de salud",
+      zh: "您的卫生检查",
+      vi: "đợt kiểm tra vệ sinh của bạn",
+      ko: "위생 점검",
     }[lang];
   }
+  return code
+    ? {
+        en: `your IRS notice (${code})`,
+        es: `su aviso del IRS (${code})`,
+        zh: `您的 IRS 通知 (${code})`,
+        vi: `thông báo IRS (${code}) của bạn`,
+        ko: `IRS 통지서(${code})`,
+      }[lang]
+    : { en: "your letter", es: "su carta", zh: "您的来信", vi: "thư của bạn", ko: "편지" }[lang];
+}
+
+/**
+ * The whole line for one item: "su aviso del IRS (CP14) vence en 2 días",
+ * "您的 IRS 通知 (CP14) 将在 2 天后到期", "IRS 통지서(CP14) 마감이 2일 남았습니다".
+ * Far dates read "vence el 2 nov".
+ */
+function whenLine(name: string, days: number, iso: string, lang: Lang): string {
   const date = shortDate(iso, lang);
-  return { en: `is due ${date}`, es: `vence el ${date}`, tr: `son gün ${date}` }[lang];
+  const n = Math.abs(days);
+  if (days === 0) {
+    return { en: `${name} is due today`, es: `${name} vence hoy`, zh: `${name}今天到期`, vi: `${name} đến hạn hôm nay`, ko: `${name} 마감이 오늘입니다` }[lang];
+  }
+  if (days === 1) {
+    return { en: `${name} is due tomorrow`, es: `${name} vence mañana`, zh: `${name}明天到期`, vi: `${name} đến hạn ngày mai`, ko: `${name} 마감이 내일입니다` }[lang];
+  }
+  if (days > 1 && days <= 7) {
+    return {
+      en: `${name} is due in ${n} days`,
+      es: `${name} vence en ${n} días`,
+      zh: `${name}将在 ${n} 天后到期`,
+      vi: `${name} đến hạn sau ${n} ngày`,
+      ko: `${name} 마감이 ${n}일 남았습니다`,
+    }[lang];
+  }
+  if (days < 0) {
+    return {
+      en: `${name} was due ${n} day${n === 1 ? "" : "s"} ago`,
+      es: `${name} venció hace ${n} día${n === 1 ? "" : "s"}`,
+      zh: `${name}已逾期 ${n} 天`,
+      vi: `${name} đã quá hạn ${n} ngày`,
+      ko: `${name} 마감이 ${n}일 지났습니다`,
+    }[lang];
+  }
+  return { en: `${name} is due ${date}`, es: `${name} vence el ${date}`, zh: `${name}${date}到期`, vi: `${name} đến hạn ${date}`, ko: `${name} 마감은 ${date}입니다` }[lang];
 }
 
 function reminderLine(item: UpcomingItem, todayIso: string, lang: Lang): string {
-  const name = itemName(item, lang);
-  const line = `${name} ${whenText(daysBetween(todayIso, item.date), item.date, lang)}`;
+  const line = whenLine(itemName(item, lang), daysBetween(todayIso, item.date), item.date, lang);
   const withAmount = item.amountDue !== undefined ? `${line}: ${usd(item.amountDue)}` : line;
   return withAmount.charAt(0).toUpperCase() + withAmount.slice(1);
 }
@@ -176,8 +197,8 @@ export const sendDue = internalMutation({
 
     const lang = ownerLang(owner);
     const lines = due.map((i) => reminderLine(i, todayIso, lang));
-    const label = { en: "Reminder", es: "Recordatorio", tr: "Hatırlatma" }[lang];
-    const labelMany = { en: "Reminders", es: "Recordatorios", tr: "Hatırlatmalar" }[lang];
+    const label = { en: "Reminder", es: "Recordatorio", zh: "提醒", vi: "Lời nhắc", ko: "알림" }[lang];
+    const labelMany = { en: "Reminders", es: "Recordatorios", zh: "提醒", vi: "Các lời nhắc", ko: "알림" }[lang];
     const body = lines.length === 1 ? `${label}: ${lines[0]}.` : `${labelMany}: ${lines.join(" · ")}.`;
     const enLines = due.map((i) => reminderLine(i, todayIso, "en"));
     const single: Doc<"cases"> | null =
