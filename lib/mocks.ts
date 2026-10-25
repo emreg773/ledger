@@ -1,5 +1,6 @@
 import type { Doc, Id, TableNames } from "@/convex/_generated/dataModel";
 import type { Extraction } from "@/convex/extraction";
+import type { InboxEmail } from "@/convex/gmail";
 import type { NotificationView } from "@/convex/notifications";
 import type { PushState, usePush } from "@/lib/push";
 import type { ActionView, CaseView, RecentEvent } from "@/lib/contract";
@@ -274,8 +275,76 @@ export const fakePush = (state: PushState): ReturnType<typeof usePush> => ({
 export const mockCalendar = {
   status: { connected: true as const, calendarName: "maria@taquerialaesquina.com", lastSyncedAt: NOW },
   events: [
-    { _id: id<"calendarEvents">("mock_event_1"), title: "Entrega de Restaurant Depot", date: "2026-10-27", time: "07:30", htmlLink: "https://calendar.google.com" },
-    { _id: id<"calendarEvents">("mock_event_2"), title: "Reunión con contador", date: "2026-10-29", time: "15:00", htmlLink: "https://calendar.google.com" },
-    { _id: id<"calendarEvents">("mock_event_3"), title: "Día de Muertos: cerrado", date: "2026-11-02", htmlLink: "https://calendar.google.com" },
+    { _id: id<"calendarEvents">("mock_event_1"), title: "Entrega de Restaurant Depot", date: "2026-10-27", time: "07:30", htmlLink: "https://calendar.google.com", business: true },
+    { _id: id<"calendarEvents">("mock_event_2"), title: "Reunión con contador", date: "2026-10-29", time: "15:00", htmlLink: "https://calendar.google.com", business: true },
+    { _id: id<"calendarEvents">("mock_event_3"), title: "Cumpleaños de Sofía", date: "2026-10-30", htmlLink: "https://calendar.google.com", business: false },
+  ],
+};
+
+// Gmail preview: a connected inbox, already sorted.
+const email = (
+  n: string,
+  hoursAgo: number,
+  fields: Pick<InboxEmail, "fromName" | "fromDomain" | "subject" | "snippet" | "category" | "reasons"> &
+    Partial<Pick<InboxEmail, "attachments" | "caseId" | "documentId">>,
+): InboxEmail => ({
+  _id: id<"gmailMessages">(`mock_mail_${n}`),
+  _creationTime: NOW,
+  ownerId: OWNER,
+  gmailId: `mock_${n}`,
+  threadId: `mock_${n}`,
+  fromEmail: `notices@${fields.fromDomain}`,
+  receivedAt: NOW - hoursAgo * 3_600_000,
+  attachments: [],
+  ...fields,
+});
+
+export const mockEmail = {
+  status: { connected: true as const, emailAddress: "maria@taquerialaesquina.com", lastSyncedAt: NOW - 5 * 60_000 },
+  emails: [
+    email("irs", 3, {
+      fromName: "Internal Revenue Service",
+      fromDomain: "irs.gov",
+      subject: "A new notice is available in your business tax account",
+      snippet: "You have a new notice (CP14) about your Form 941 for the quarter ending June 30, 2026.",
+      category: "government",
+      reasons: ["Sent from irs.gov, an official IRS domain"],
+      attachments: [{ filename: "CP14_notice.pdf", mimeType: "application/pdf", size: 182_000, attachmentId: "a1" }],
+      caseId: mockCases.cp14._id,
+      documentId: id<"documents">("mock_doc_cp14"),
+    }),
+    email("county", 26, {
+      fromName: "Alameda County Environmental Health",
+      fromDomain: "acgov.org",
+      subject: "Reinspection scheduled for Taquería La Esquina",
+      snippet: "Your reinspection is scheduled for October 31, 2026 between 9 AM and 12 PM.",
+      category: "government",
+      reasons: ["Sent from acgov.org, an official Alameda County Environmental Health domain"],
+    }),
+    email("scam", 8, {
+      fromName: "IRS Tax Enforcement",
+      fromDomain: "irs-refunds-help.com",
+      subject: "FINAL NOTICE: pay today with gift cards to avoid arrest",
+      snippet: "Your business has an outstanding balance. Pay within 24 hours.",
+      category: "suspicious",
+      reasons: ["Says it's from the IRS, but was sent from irs-refunds-help.com, not irs.gov", 'Pressure or unusual payment: "FINAL NOTICE"'],
+    }),
+    email("depot", 30, {
+      fromName: "Restaurant Depot",
+      fromDomain: "restaurantdepot.com",
+      subject: "Invoice #4821 for your order",
+      snippet: "Thank you for your order. Your invoice total is $612.40.",
+      category: "business",
+      reasons: ['Mentions "invoice"'],
+      attachments: [{ filename: "invoice_4821.pdf", mimeType: "application/pdf", size: 64_000, attachmentId: "a2" }],
+    }),
+    email("square", 50, {
+      fromName: "Square",
+      fromDomain: "squareup.com",
+      subject: "5 ways to grow your sales this holiday season",
+      snippet: "Get ready for the busiest time of the year.",
+      category: "other",
+      reasons: ["Newsletter or mailing list"],
+    }),
   ],
 };

@@ -298,6 +298,61 @@ async function queuePush(
 }
 
 /**
+ * An email Ledger sorted as government (with no attachment to read; those
+ * notify once Ledger has read them) or suspicious (gmail.ts saveSync). Only the
+ * sender's domain goes in the text, never the subject or the body.
+ */
+export const notifyEmail = internalMutation({
+  args: {
+    ownerId: v.id("owners"),
+    kind: v.union(v.literal("email_government"), v.literal("email_suspicious")),
+    fromDomain: v.string(),
+  },
+  handler: async (ctx, { ownerId, kind, fromDomain }) => {
+    const owner = await ctx.db.get(ownerId);
+    if (!owner) return null;
+    const lang: Lang = owner.preferredLanguage === "es" || owner.preferredLanguage === "tr" ? owner.preferredLanguage : "en";
+    const gov = kind === "email_government";
+    const titles = gov
+      ? { en: "Email from an agency", es: "Correo de una agencia", tr: "Kurumdan e-posta" }
+      : { en: "Suspicious email", es: "Correo sospechoso", tr: "Şüpheli e-posta" };
+    const bodies = gov
+      ? {
+          en: `An email from ${fromDomain} is at the top of your inbox in Ledger.`,
+          es: `Un correo de ${fromDomain} está primero en su bandeja de Ledger.`,
+          tr: `${fromDomain} adresinden gelen bir e-posta Ledger'daki gelen kutunuzun en üstünde.`,
+        }
+      : {
+          en: `An email from ${fromDomain} pretends to be from an agency. Don't pay or click its links.`,
+          es: `Un correo de ${fromDomain} se hace pasar por una agencia. No pague ni abra sus enlaces.`,
+          tr: `${fromDomain} adresinden gelen bir e-posta kendini kurum gibi gösteriyor. Ödeme yapmayın, linklerine tıklamayın.`,
+        };
+    const summary = gov ? `Email from ${fromDomain} (government)` : `Suspicious email from ${fromDomain}`;
+    await ctx.db.insert("notifications", {
+      ownerId,
+      kind,
+      category: gov ? "letter" : "alert",
+      title: titles[lang],
+      body: bodies[lang],
+      searchText: [titles[lang], bodies[lang], titles.en, summary, "email gmail"].join(" "),
+      createdAt: Date.now(),
+    });
+    const hasDevice = await ctx.db
+      .query("pushSubscriptions")
+      .withIndex("by_owner", (q) => q.eq("ownerId", ownerId))
+      .first();
+    if (hasDevice) {
+      await ctx.scheduler.runAfter(0, internal.pushNode.send, {
+        ownerId,
+        payload: { title: "Ledger", body: bodies[lang], url: "/?tab=email", tag: `ledger-${kind}` },
+        summary,
+      });
+    }
+    return null;
+  },
+});
+
+/**
  * Called at the end of agent.respond (Section 7 triggers):
  * - a document run: action_needed if it proposed actions, document_failed if
  *   reading failed, else document_read

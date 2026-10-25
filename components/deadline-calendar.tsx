@@ -18,7 +18,7 @@ import { cn } from "@/lib/utils";
 // Google event opens in Google Calendar.
 
 type CaseRow = Pick<Doc<"cases">, "_id" | "docType" | "title" | "deadline" | "amountDue" | "status">;
-type GoogleEvent = Pick<Doc<"calendarEvents">, "_id" | "title" | "date" | "time" | "htmlLink">;
+type GoogleEvent = Pick<Doc<"calendarEvents">, "_id" | "title" | "date" | "time" | "htmlLink" | "business">;
 type CalendarStatus =
   | { connected: false }
   | { connected: true; calendarName?: string; lastSyncedAt?: number; error?: string };
@@ -28,9 +28,12 @@ const iso = (d: Date) =>
 
 export function DeadlineCalendar({
   cases,
+  filter = "business",
   preview,
 }: {
   cases: CaseRow[];
+  /** The owner's setting: only business-looking Google events, or all of them. */
+  filter?: "business" | "all";
   /** /dev only: mock Google events instead of the backend. */
   preview?: { status: CalendarStatus; events: GoogleEvent[] };
 }) {
@@ -54,7 +57,10 @@ export function DeadlineCalendar({
   const fetchedStatus = useQuery(api.googleCalendar.status, preview ? "skip" : {});
   const fetchedEvents = useQuery(api.googleCalendar.events, preview || !range ? "skip" : range);
   const status = preview ? preview.status : fetchedStatus;
-  const googleEvents = preview ? preview.events : (fetchedEvents ?? []);
+  // Events synced before the business flag existed (undefined) still show.
+  const googleEvents = (preview ? preview.events : (fetchedEvents ?? [])).filter(
+    (e) => filter === "all" || e.business !== false,
+  );
   const eventsByDay = new Map<string, GoogleEvent[]>();
   for (const e of googleEvents) eventsByDay.set(e.date, [...(eventsByDay.get(e.date) ?? []), e]);
 
@@ -202,13 +208,21 @@ export function DeadlineCalendar({
         )}
       </div>
 
-      <GoogleCalendarLine status={status} preview={Boolean(preview)} />
+      <GoogleCalendarLine status={status} filter={filter} preview={Boolean(preview)} />
     </section>
   );
 }
 
 /** Connect, reconnect or disconnect Google Calendar, at the bottom of the card. */
-function GoogleCalendarLine({ status, preview }: { status: CalendarStatus | null | undefined; preview: boolean }) {
+function GoogleCalendarLine({
+  status,
+  filter,
+  preview,
+}: {
+  status: CalendarStatus | null | undefined;
+  filter: "business" | "all";
+  preview: boolean;
+}) {
   const { t } = useI18n();
   const startConnect = useMutation(api.googleCalendar.startConnect);
   const disconnect = useMutation(api.googleCalendar.disconnect);
@@ -265,6 +279,8 @@ function GoogleCalendarLine({ status, preview }: { status: CalendarStatus | null
           <span className="min-w-0 truncate">
             <span className="mr-1 inline-block size-1.5 rounded-full bg-foreground align-middle" aria-hidden />
             {t("cal.connected", { name: status.calendarName ?? "Google" })}
+            {" · "}
+            {filter === "all" ? t("cal.filterAll") : t("cal.filterBusiness")}
           </span>
           <Button
             variant="link"

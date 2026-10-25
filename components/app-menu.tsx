@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useMutation } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { Menu } from "lucide-react";
 import type { Doc } from "@/convex/_generated/dataModel";
@@ -38,10 +38,21 @@ import type { usePush } from "@/lib/push";
 
 type Confirm = "reset" | "delete" | null;
 
-export function AppMenu({ owner, push }: { owner: Doc<"owners">; push: ReturnType<typeof usePush> }) {
+export function AppMenu({
+  owner,
+  push,
+  preview = false,
+}: {
+  owner: Doc<"owners">;
+  push: ReturnType<typeof usePush>;
+  /** /dev only: don't query the backend. */
+  preview?: boolean;
+}) {
   const { t } = useI18n();
   const { signOut } = useAuthActions();
   const setLanguage = useMutation(api.owners.setLanguage);
+  const setCalendarFilter = useMutation(api.owners.setCalendarFilter);
+  const calendar = useQuery(api.googleCalendar.status, preview ? "skip" : {});
   const sendTest = useMutation(api.push.sendTest);
   const resetMyData = useMutation(api.owners.resetMyData);
   const deleteMyAccount = useMutation(api.owners.deleteMyAccount);
@@ -111,6 +122,21 @@ export function AppMenu({ owner, push }: { owner: Doc<"owners">; push: ReturnTyp
               ))}
             </DropdownMenuRadioGroup>
           </DropdownMenuGroup>
+          {calendar?.connected && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuGroup>
+                <DropdownMenuLabel>{t("menu.calendar")}</DropdownMenuLabel>
+                <DropdownMenuRadioGroup
+                  value={owner.calendarFilter ?? "business"}
+                  onValueChange={(filter: "business" | "all") => void setCalendarFilter({ filter })}
+                >
+                  <DropdownMenuRadioItem value="business">{t("menu.calendarBusiness")}</DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="all">{t("menu.calendarAll")}</DropdownMenuRadioItem>
+                </DropdownMenuRadioGroup>
+              </DropdownMenuGroup>
+            </>
+          )}
           {push.state !== "unsupported" && push.state !== "loading" && (
             <>
               <DropdownMenuSeparator />

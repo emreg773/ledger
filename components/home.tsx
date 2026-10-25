@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ComponentProps } from "react";
+import { useEffect, useState, type ComponentProps } from "react";
 import { useQuery } from "convex/react";
 import { Camera, FileText, ListChecks, MessageSquare, type LucideIcon } from "lucide-react";
 import { api } from "@/convex/_generated/api";
@@ -9,6 +9,7 @@ import type { NotificationView } from "@/convex/notifications";
 import { ActionCard } from "@/components/action-card";
 import { DeadlineCalendar } from "@/components/deadline-calendar";
 import { DocumentCard } from "@/components/document-card";
+import { EmailInbox } from "@/components/email-inbox";
 import { NotificationList } from "@/components/notification-center";
 import { NotificationBanner } from "@/components/notifications";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -52,6 +53,7 @@ export function Home({
     openTasks: ActionView[];
     notifications: NotificationView[];
     calendar: ComponentProps<typeof DeadlineCalendar>["preview"];
+    email: ComponentProps<typeof EmailInbox>["preview"];
   };
 }) {
   const { t, language } = useI18n();
@@ -59,6 +61,52 @@ export function Home({
   const fetchedTasks = useQuery(api.actions.listOpenForOwner, preview ? "skip" : {});
   const openTasks = preview?.openTasks ?? fetchedTasks ?? [];
   const [sheet, setSheet] = useState<"files" | "tasks" | null>(null);
+  const [tab, setTab] = useState<"notifications" | "email">("notifications");
+  const inbox = useQuery(api.gmail.inbox, preview ? "skip" : {});
+  const governmentEmails = (preview?.email?.emails ?? inbox ?? []).filter((e) => e.category === "government").length;
+
+  useEffect(() => {
+    const show = () => {
+      const url = new URL(window.location.href);
+      if (url.searchParams.get("tab") !== "email") return;
+      setTab("email");
+      url.searchParams.delete("tab");
+      window.history.replaceState(null, "", url);
+    };
+    show();
+    window.addEventListener("ledger:open-email", show);
+    return () => window.removeEventListener("ledger:open-email", show);
+  }, []);
+
+  const tabs = (
+    <div className="flex items-baseline gap-5" role="tablist">
+      {(
+        [
+          ["notifications", t("home.recent"), 0],
+          ["email", t("home.email"), governmentEmails],
+        ] as const
+      ).map(([value, label, count]) => (
+        <button
+          key={value}
+          type="button"
+          role="tab"
+          aria-selected={tab === value}
+          onClick={() => setTab(value)}
+          className={cn(
+            "flex items-baseline gap-1.5 font-display text-2xl leading-none",
+            tab === value ? "text-foreground underline decoration-2 underline-offset-8" : "text-muted-foreground hover:text-foreground",
+          )}
+        >
+          {label}
+          {count > 0 && (
+            <span className="rounded bg-gold px-1 font-sans text-xs font-semibold text-gold-foreground no-underline">
+              {count}
+            </span>
+          )}
+        </button>
+      ))}
+    </div>
+  );
   const casesById = new Map(cases.map((c) => [c._id as string, c]));
 
   return (
@@ -82,15 +130,16 @@ export function Home({
             className="ledger-card flex max-h-[70dvh] min-h-80 min-w-0 flex-col lg:max-h-none lg:min-h-0 lg:flex-1"
             aria-label={t("notif.title")}
           >
-            <NotificationList
-              title={<h2 className="font-display text-2xl leading-none">{t("home.recent")}</h2>}
-              previewItems={preview?.notifications}
-            />
+            {tab === "notifications" ? (
+              <NotificationList title={tabs} previewItems={preview?.notifications} />
+            ) : (
+              <EmailInbox title={tabs} preview={preview?.email} />
+            )}
           </section>
         </div>
 
         <div className="order-first flex min-w-0 flex-col gap-4 lg:order-none lg:min-h-0 lg:gap-3">
-          <DeadlineCalendar cases={cases} preview={preview?.calendar} />
+          <DeadlineCalendar cases={cases} filter={owner.calendarFilter} preview={preview?.calendar} />
           <div className="grid shrink-0 grid-cols-2 gap-3 lg:gap-2">
             <Tile icon={Camera} label="home.upload" hint="home.uploadHint" primary onClick={startUpload} />
             <Tile icon={FileText} label="home.files" count={documents.length} onClick={() => setSheet("files")} />

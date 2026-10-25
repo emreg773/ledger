@@ -59,6 +59,15 @@ export const taskStatus = v.union(
   v.literal("rejected"),
 );
 
+// How Ledger sorts an email (gmail.ts classify): government senders first,
+// then emails pretending to be one, then likely business mail, then the rest.
+export const emailCategory = v.union(
+  v.literal("government"),
+  v.literal("suspicious"),
+  v.literal("business"),
+  v.literal("other"),
+);
+
 // Notification center categories. needs_action: the owner has a decision to
 // make. alert: a suspected scam or something that failed. letter: a letter was
 // read. done: a payment or task finished.
@@ -115,6 +124,8 @@ export default defineSchema({
     nessieCustomerId: v.optional(v.string()),
     nessieAccountId: v.optional(v.string()),
     accountLast4: v.optional(v.string()),
+    // Which Google Calendar events the home calendar shows; unset means "business".
+    calendarFilter: v.optional(v.union(v.literal("business"), v.literal("all"))),
   })
     .index("by_userId", ["userId"])
     .index("by_email", ["email"])
@@ -144,10 +155,12 @@ export default defineSchema({
     error: v.optional(v.string()), // e.g. "revoked": the owner removed access in Google
   }).index("by_owner", ["ownerId"]),
 
-  // The OAuth "state" for a connect in progress; single use, 10 minutes.
-  calendarOAuthStates: defineTable({
+  // The OAuth "state" for a Google Calendar or Gmail connect in progress;
+  // single use, 10 minutes (googleOAuth.ts).
+  googleOAuthStates: defineTable({
     ownerId: v.id("owners"),
     state: v.string(),
+    purpose: v.union(v.literal("calendar"), v.literal("gmail")),
     createdAt: v.number(),
   }).index("by_state", ["state"]),
 
@@ -160,7 +173,47 @@ export default defineSchema({
     date: v.string(), // ISO date the event starts, in the calendar's time zone
     time: v.optional(v.string()), // "HH:MM"; absent for all-day events
     htmlLink: v.optional(v.string()),
+    // Looks business-related (googleCalendar.ts isBusinessEvent). Optional only
+    // for events synced before the filter existed; the next sync sets it.
+    business: v.optional(v.boolean()),
   }).index("by_owner_and_date", ["ownerId", "date"]),
+
+  // Gmail, read-only (gmail.ts). One connection per owner; the refresh token
+  // never leaves the backend.
+  gmailConnections: defineTable({
+    ownerId: v.id("owners"),
+    refreshToken: v.string(),
+    accessToken: v.optional(v.string()),
+    accessTokenExpiresAt: v.optional(v.number()),
+    emailAddress: v.optional(v.string()),
+    connectedAt: v.number(),
+    lastSyncedAt: v.optional(v.number()),
+    error: v.optional(v.string()), // e.g. "revoked"
+  }).index("by_owner", ["ownerId"]),
+
+  // Emails Ledger looked at (the last 30 days, minus what Gmail files as spam,
+  // promotions, social or forums), sorted by the rules in gmail.ts. Only
+  // headers, the snippet and attachment metadata are kept, never the body.
+  gmailMessages: defineTable({
+    ownerId: v.id("owners"),
+    gmailId: v.string(),
+    threadId: v.string(),
+    fromName: v.string(),
+    fromEmail: v.string(),
+    fromDomain: v.string(),
+    subject: v.string(),
+    snippet: v.string(),
+    receivedAt: v.number(),
+    category: emailCategory,
+    reasons: v.array(v.string()), // readable English, like the sender check's
+    attachments: v.array(
+      v.object({ filename: v.string(), mimeType: v.string(), size: v.number(), attachmentId: v.string() }),
+    ),
+    // The document Ledger read from this email's attachment, if any.
+    documentId: v.optional(v.id("documents")),
+  })
+    .index("by_owner", ["ownerId", "receivedAt"])
+    .index("by_owner_and_gmail_id", ["ownerId", "gmailId"]),
 
   // Every notification Ledger sends, kept for the in-app notification center,
   // whether or not the owner has a device subscribed to push.

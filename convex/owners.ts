@@ -116,6 +116,16 @@ export const setLanguage = mutation({
 });
 
 /** "Start over with demo data": a clean thread and a reseeded bank. Keeps the profile and push subscriptions. */
+/** Settings: which Google Calendar events the home calendar shows. */
+export const setCalendarFilter = mutation({
+  args: { filter: v.union(v.literal("business"), v.literal("all")) },
+  handler: async (ctx, { filter }) => {
+    const owner = await requireOwner(ctx);
+    await ctx.db.patch(owner._id, { calendarFilter: filter });
+    return null;
+  },
+});
+
 export const resetMyData = mutation({
   args: {},
   handler: async (ctx) => {

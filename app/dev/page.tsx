@@ -57,7 +57,7 @@ export default function DevPreview() {
         <Section title="Step 3: header menu, welcome, notification banner">
           <div className="relative flex items-center justify-between rounded-xl border px-3 py-2">
             <div className="font-semibold">{mockOwner.businessName}</div>
-            <AppMenu owner={{ ...mockOwner, preferredLanguage: language }} push={fakePush("on")} />
+            <AppMenu owner={{ ...mockOwner, preferredLanguage: language }} push={fakePush("on")} preview />
           </div>
           <Welcome owner={mockOwner} />
           {(["default", "needs_install", "denied"] as const).map((state) => (

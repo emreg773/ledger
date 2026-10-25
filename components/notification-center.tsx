@@ -27,6 +27,7 @@ import { countdown, timeAgo } from "@/lib/format";
 import { useI18n, type MessageKey } from "@/lib/i18n";
 import { splitPinned } from "@/lib/notifications";
 import { useNow, useToday } from "@/lib/use-today";
+import { openEmailTab } from "@/lib/navigation";
 import { cn } from "@/lib/utils";
 
 // Notification center: every notification Ledger sent, searchable, filtered by
@@ -138,6 +139,10 @@ export function NotificationList({
     if (n.caseId) {
       onNavigate?.();
       openCase(n.caseId);
+    } else if (n.kind.startsWith("email_")) {
+      onNavigate?.();
+      window.dispatchEvent(new Event("ledger:open-home"));
+      openEmailTab();
     }
   }
 
