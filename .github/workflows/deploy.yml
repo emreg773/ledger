@@ -1,5 +1,7 @@
-# Deploys production on every merge to main, or by hand from the Actions tab
-# ("Deploy production" → Run workflow).
+# Deploys production, by hand only: Actions tab → "Deploy production" → Run
+# workflow. Merging to main does NOT deploy; the team deploys from a laptop
+# (README, "Deploy"). Claude only runs this when a person explicitly asks
+# (CLAUDE.md).
 #
 # Same as `npx vercel deploy --prod` from a laptop: the code is uploaded and
 # Vercel builds it with the project's own env (CONVEX_DEPLOY_KEY,
@@ -14,11 +16,9 @@
 name: Deploy production
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
-# One deploy at a time; a newer merge waits for the running one.
+# One deploy at a time; a newer run waits for the running one.
 concurrency:
   group: deploy-production
   cancel-in-progress: false

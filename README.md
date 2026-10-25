@@ -25,15 +25,16 @@ For push notifications locally, set `NEXT_PUBLIC_VAPID_PUBLIC_KEY` in `.env.loca
 
 ## Deploy
 
-**Every merge to `main` deploys production** through GitHub Actions ([.github/workflows/deploy.yml](.github/workflows/deploy.yml)). To deploy by hand, open the repo's Actions tab, choose "Deploy production", then Run workflow. The workflow runs the same command as a laptop deploy, using the repository secrets `VERCEL_TOKEN`, `VERCEL_ORG_ID` and `VERCEL_PROJECT_ID`. The repo is private on another GitHub account, so Vercel's free plan can't deploy it from git directly.
-
-From a laptop, with the Vercel project linked:
+**Merging to `main` does not deploy.** Production is deployed from a laptop, from an up-to-date `main`:
 
 ```bash
+git checkout main && git pull
 npx vercel deploy --prod
 ```
 
 The build runs `npx convex deploy --cmd 'npm run build'` (see `vercel.json`), so it deploys the Convex functions to production and then the frontend. Vercel env: `CONVEX_DEPLOY_KEY` (prod) and `NEXT_PUBLIC_VAPID_PUBLIC_KEY`. The production Convex env is listed in [STEP3_REPORT.md](STEP3_REPORT.md).
+
+The same deploy can also run in GitHub Actions ([.github/workflows/deploy.yml](.github/workflows/deploy.yml)), **by hand only**: Actions tab → "Deploy production" → Run workflow. It uses the repository secrets `VERCEL_TOKEN`, `VERCEL_ORG_ID` and `VERCEL_PROJECT_ID`. Claude doesn't use it unless asked (see [CLAUDE.md](CLAUDE.md)).
 
 ## Testing
 
@@ -73,6 +74,6 @@ fixtures/                                           fake sample documents + expe
 
 ## Git workflow
 
-- `main` is always demo-able, and every merge deploys it to production (see Deploy). Work on a branch (`step2-playbooks`, `fix-upload`), open a PR, merge when it runs.
+- `main` is always demo-able. Merging doesn't deploy; production is deployed by hand (see Deploy). Work on a branch (`step2-playbooks`, `fix-upload`), open a PR, merge when it runs.
 - Pull often; Convex schema changes affect both of us.
 - Never commit keys. `.env.local` is gitignored; secrets go in `npx convex env set`.
