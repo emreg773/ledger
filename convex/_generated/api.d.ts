@@ -13,10 +13,14 @@ import type * as actions from "../actions.js";
 import type * as admin from "../admin.js";
 import type * as agent from "../agent.js";
 import type * as auth from "../auth.js";
+import type * as calendarCompliance from "../calendarCompliance.js";
 import type * as calendarRules from "../calendarRules.js";
 import type * as cases from "../cases.js";
 import type * as chat from "../chat.js";
+import type * as clock from "../clock.js";
 import type * as crons from "../crons.js";
+import type * as deadlines from "../deadlines.js";
+import type * as digest from "../digest.js";
 import type * as documents from "../documents.js";
 import type * as emailRules from "../emailRules.js";
 import type * as events from "../events.js";
@@ -40,6 +44,7 @@ import type * as push from "../push.js";
 import type * as pushNode from "../pushNode.js";
 import type * as senderCheck from "../senderCheck.js";
 import type * as shared from "../shared.js";
+import type * as telegram from "../telegram.js";
 import type * as testing from "../testing.js";
 
 import type {
@@ -54,10 +59,14 @@ declare const fullApi: ApiFromModules<{
   admin: typeof admin;
   agent: typeof agent;
   auth: typeof auth;
+  calendarCompliance: typeof calendarCompliance;
   calendarRules: typeof calendarRules;
   cases: typeof cases;
   chat: typeof chat;
+  clock: typeof clock;
   crons: typeof crons;
+  deadlines: typeof deadlines;
+  digest: typeof digest;
   documents: typeof documents;
   emailRules: typeof emailRules;
   events: typeof events;
@@ -81,6 +90,7 @@ declare const fullApi: ApiFromModules<{
   pushNode: typeof pushNode;
   senderCheck: typeof senderCheck;
   shared: typeof shared;
+  telegram: typeof telegram;
   testing: typeof testing;
 }>;
 
