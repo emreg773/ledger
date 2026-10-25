@@ -165,7 +165,7 @@
   "home.prevMonth": "Previous month",
   "home.nextMonth": "Next month",
   "home.dueOn": "{count} due on {date}",
-  "home.dueThatDay": "Due that day",
+  "home.dueThatDay": "That day",
   "home.upcoming": "Coming up",
   "home.upcomingOverdue": "Coming up · {count} overdue",
   "home.noDeadlines": "No deadlines. Nice.",
@@ -177,5 +177,17 @@
   "home.tasksEmpty": "Nothing waiting on you.",
   "home.conversation": "Conversation",
   "home.conversationEmpty": "Starts when you send something",
-  "home.back": "Back to home"
+  "home.back": "Back to home",
+  "cal.pitch": "See your own events here too.",
+  "cal.connect": "Connect Google Calendar",
+  "cal.reconnect": "Reconnect",
+  "cal.revoked": "Google Calendar access was removed.",
+  "cal.connected": "Google Calendar · {name}",
+  "cal.disconnect": "Disconnect",
+  "cal.connectError": "Google Calendar didn't connect. Please try again.",
+  "cal.syncing": "Connected. Your events are on their way.",
+  "cal.eventsOn": "{count} calendar events",
+  "cal.allDay": "all day",
+  "cal.untitled": "(No title)",
+  "cal.openInGoogle": "Open in Google Calendar"
 }

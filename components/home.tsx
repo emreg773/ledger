@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ComponentProps } from "react";
 import { useQuery } from "convex/react";
 import { Camera, FileText, ListChecks, MessageSquare, type LucideIcon } from "lucide-react";
 import { api } from "@/convex/_generated/api";
@@ -48,7 +48,11 @@ export function Home({
   push: ReturnType<typeof usePush>;
   onOpenConversation: () => void;
   /** /dev only: mock data instead of the backend. */
-  preview?: { openTasks: ActionView[]; notifications: NotificationView[] };
+  preview?: {
+    openTasks: ActionView[];
+    notifications: NotificationView[];
+    calendar: ComponentProps<typeof DeadlineCalendar>["preview"];
+  };
 }) {
   const { t, language } = useI18n();
   const today = useToday();
@@ -86,7 +90,7 @@ export function Home({
         </div>
 
         <div className="order-first flex min-w-0 flex-col gap-4 lg:order-none lg:min-h-0 lg:gap-3">
-          <DeadlineCalendar cases={cases} />
+          <DeadlineCalendar cases={cases} preview={preview?.calendar} />
           <div className="grid shrink-0 grid-cols-2 gap-3 lg:gap-2">
             <Tile icon={Camera} label="home.upload" hint="home.uploadHint" primary onClick={startUpload} />
             <Tile icon={FileText} label="home.files" count={documents.length} onClick={() => setSheet("files")} />

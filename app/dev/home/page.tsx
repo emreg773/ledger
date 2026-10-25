@@ -7,6 +7,7 @@ import { I18nProvider } from "@/lib/i18n";
 import {
   fakePush,
   mockActions,
+  mockCalendar,
   mockCases,
   mockDocuments,
   mockNotifications,
@@ -44,6 +45,7 @@ export default function DevHomePreview() {
         preview={{
           openTasks: [mockActions.payProposed, mockActions.taskProposed],
           notifications: mockNotifications,
+          calendar: mockCalendar,
         }}
       />
       </main>

@@ -165,7 +165,7 @@
   "home.prevMonth": "Mes anterior",
   "home.nextMonth": "Mes siguiente",
   "home.dueOn": "{count} vence(n) el {date}",
-  "home.dueThatDay": "Vence ese día",
+  "home.dueThatDay": "Ese día",
   "home.upcoming": "Próximos plazos",
   "home.upcomingOverdue": "Próximos · {count} vencido(s)",
   "home.noDeadlines": "Sin plazos pendientes.",
@@ -177,5 +177,17 @@
   "home.tasksEmpty": "No tiene nada pendiente.",
   "home.conversation": "Conversación",
   "home.conversationEmpty": "Empieza cuando envíe algo",
-  "home.back": "Volver al inicio"
+  "home.back": "Volver al inicio",
+  "cal.pitch": "Vea aquí también sus propios eventos.",
+  "cal.connect": "Conectar Google Calendar",
+  "cal.reconnect": "Volver a conectar",
+  "cal.revoked": "Se quitó el acceso a Google Calendar.",
+  "cal.connected": "Google Calendar · {name}",
+  "cal.disconnect": "Desconectar",
+  "cal.connectError": "No se pudo conectar Google Calendar. Inténtelo de nuevo.",
+  "cal.syncing": "Conectado. Sus eventos están en camino.",
+  "cal.eventsOn": "{count} eventos del calendario",
+  "cal.allDay": "todo el día",
+  "cal.untitled": "(Sin título)",
+  "cal.openInGoogle": "Abrir en Google Calendar"
 }
