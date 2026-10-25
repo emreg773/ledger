@@ -325,18 +325,20 @@ function Hero({
           style={{ animationDelay: "320ms" }}
         >
           <GoogleButton google={google} />
-          <p className="text-xs text-[#5f5f68]">{t("landing.ctaNote")}</p>
           {google.error && <p className="text-sm text-[#f87171]">{t("signIn.error")}</p>}
         </div>
       </div>
 
-      <a
-        href="#demo"
-        aria-label={t("landing.demoEyebrow")}
-        className="relative z-10 mx-auto mb-6 grid size-10 place-items-center rounded-full text-[#9a9aa2] transition-colors hover:text-white"
-      >
-        <ChevronDown className="landing-bob size-5" />
-      </a>
+      <div className="relative z-10 flex flex-col items-center gap-2 px-4 pb-7 text-center">
+        <a
+          href="#demo"
+          aria-label={t("landing.demoEyebrow")}
+          className="grid size-10 place-items-center rounded-full text-[#9a9aa2] transition-colors hover:text-white"
+        >
+          <ChevronDown className="landing-bob size-5" />
+        </a>
+        <p className="text-xs text-[#9a9aa2]/70">{t("landing.ctaNote")}</p>
+      </div>
     </section>
   );
 }
