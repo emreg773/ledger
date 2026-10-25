@@ -10,7 +10,6 @@ import {
   mockCalendar,
   mockCases,
   mockDocuments,
-  mockEmail,
   mockNotifications,
   mockOwner,
 } from "@/lib/mocks";
@@ -47,7 +46,6 @@ export default function DevHomePreview() {
           openTasks: [mockActions.payProposed, mockActions.taskProposed],
           notifications: mockNotifications,
           calendar: mockCalendar,
-          email: mockEmail,
         }}
       />
       </main>

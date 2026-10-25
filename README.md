@@ -45,7 +45,7 @@ npx convex run testing:extractStorageId '{"storageId":"...","mimeType":"image/jp
 npx convex run testing:recentMessages     # latest agent replies
 ```
 
-Intake without the UI (how Gmail/WhatsApp will call it):
+Intake without the UI (how Telegram calls it):
 
 ```bash
 npx convex run intake:ingestDocument '{"ownerId":"...","storageId":"...","mimeType":"image/jpeg","source":"web_upload"}'
