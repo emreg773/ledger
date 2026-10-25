@@ -17,6 +17,18 @@ export async function nowMs(ctx: QueryCtx | MutationCtx, ownerId: Id<"owners">):
   return Date.now() + (owner?.clockOffsetMs ?? 0);
 }
 
+/**
+ * The calendar date (YYYY-MM-DD) at a time, in Pacific time: every owner is in
+ * Alameda County, and UTC would roll over to tomorrow at 5 PM.
+ */
+export function isoDateAt(ms: number): string {
+  try {
+    return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Los_Angeles" }).format(ms);
+  } catch {
+    return new Date(ms - 8 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  }
+}
+
 /** For the owner's demo clock panel and useNow(). Zero offset when signed out. */
 export const get = query({
   args: {},

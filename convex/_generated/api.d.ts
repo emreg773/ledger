@@ -25,6 +25,7 @@ import type * as documents from "../documents.js";
 import type * as emailRules from "../emailRules.js";
 import type * as events from "../events.js";
 import type * as extraction from "../extraction.js";
+import type * as generalDates from "../generalDates.js";
 import type * as gmail from "../gmail.js";
 import type * as googleCalendar from "../googleCalendar.js";
 import type * as googleOAuth from "../googleOAuth.js";
@@ -72,6 +73,7 @@ declare const fullApi: ApiFromModules<{
   emailRules: typeof emailRules;
   events: typeof events;
   extraction: typeof extraction;
+  generalDates: typeof generalDates;
   gmail: typeof gmail;
   googleCalendar: typeof googleCalendar;
   googleOAuth: typeof googleOAuth;

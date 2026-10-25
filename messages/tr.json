@@ -238,5 +238,18 @@
   "caseHistory.actionDone": "Tamamlandı",
   "caseHistory.actionOpen": "Onayınızı bekliyor",
   "caseHistory.actionRejected": "Reddettiniz",
-  "caseHistory.actionFailed": "Tamamlanamadı"
+  "caseHistory.actionFailed": "Tamamlanamadı",
+  "clock.menu": "Demo saati",
+  "clock.title": "Demo saati",
+  "clock.description": "Hatırlatmaları ve takip mektuplarını görmek için zamanı ileri alın. Yalnızca sizin hesabınızı etkiler.",
+  "clock.current": "Demo tarihi:",
+  "clock.skipped": "ileri alındı",
+  "clock.plusDay": "+1 gün",
+  "clock.plusWeek": "+1 hafta",
+  "clock.plus30": "+30 gün",
+  "clock.pickDate": "Bir tarih seçin",
+  "clock.go": "Git",
+  "clock.reset": "Bugüne dön",
+  "clock.close": "Kapat",
+  "clock.banner": "Demo tarihi: {date}"
 }
