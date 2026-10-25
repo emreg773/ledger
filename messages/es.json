@@ -251,5 +251,8 @@
   "clock.go": "Ir",
   "clock.reset": "Volver a hoy",
   "clock.close": "Cerrar",
-  "clock.banner": "Fecha de demostración: {date}"
+  "clock.banner": "Fecha de demostración: {date}",
+  "telegram.connect": "Conectar Telegram",
+  "telegram.connected": "Conectado ✓ Envíe cartas al bot",
+  "telegram.disconnect": "Desconectar Telegram"
 }

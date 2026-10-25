@@ -10,7 +10,8 @@
     "dev:backend": "convex dev",
     "reset": "convex run admin:resetDemo",
     "test:fixtures": "tsx scripts/test-fixtures.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "telegram:webhook": "tsx scripts/telegram-webhook.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "4.0.15",

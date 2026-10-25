@@ -251,5 +251,8 @@
   "clock.go": "前往",
   "clock.reset": "恢复到今天",
   "clock.close": "关闭",
-  "clock.banner": "演示日期：{date}"
+  "clock.banner": "演示日期：{date}",
+  "telegram.connect": "连接 Telegram",
+  "telegram.connected": "已连接 ✓ 可将信件发给机器人",
+  "telegram.disconnect": "断开 Telegram"
 }

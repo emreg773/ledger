@@ -251,5 +251,8 @@
   "clock.go": "Đi",
   "clock.reset": "Về hôm nay",
   "clock.close": "Đóng",
-  "clock.banner": "Ngày demo: {date}"
+  "clock.banner": "Ngày demo: {date}",
+  "telegram.connect": "Kết nối Telegram",
+  "telegram.connected": "Đã kết nối ✓ Gửi thư cho bot",
+  "telegram.disconnect": "Ngắt kết nối Telegram"
 }
