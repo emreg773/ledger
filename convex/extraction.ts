@@ -74,6 +74,22 @@ const modelExtractionSchema = z.object({
     .string()
     .optional()
     .describe('e.g. "Form 941, period ending 2026-06-30"'),
+  // Step 4 case memory: what ties a later notice to the same case (documents.ts
+  // caseKeyOf). Nullable rather than optional, like the inspection fields.
+  taxForm: z.string().nullable().describe('Tax form number only, e.g. "941". null if none'),
+  taxPeriodEnd: nullableDate("End of the tax period, e.g. 2026-06-30 for Q2 2026"),
+  taxYear: z.string().nullable().describe('Tax year, e.g. "2025". null if none'),
+  einLast4: z
+    .string()
+    .nullable()
+    .describe("Last 4 digits of the EIN printed on the document, digits only. null if none"),
+  facilityId: z
+    .string()
+    .nullable()
+    .describe("Health inspections: the facility or permit ID as printed. null otherwise"),
+  referencedNoticeDates: z
+    .array(z.string())
+    .describe("Dates (ISO) of earlier notices this letter mentions, e.g. a previous notice. Empty if none"),
   amountDue: z.number().optional().describe("Total amount due now, in USD"),
   deadline: isoDate("Response or payment deadline").optional(),
   recipientName: z.string().optional(),
@@ -115,10 +131,11 @@ const modelExtractionSchema = z.object({
 });
 
 type ModelExtraction = z.infer<typeof modelExtractionSchema>;
-export type Extraction = Omit<ModelExtraction, "fieldConfidence" | "inspection"> & {
+type CaseKeyField = "taxForm" | "taxPeriodEnd" | "taxYear" | "einLast4" | "facilityId";
+export type Extraction = Omit<ModelExtraction, "fieldConfidence" | "inspection" | CaseKeyField> & {
   fieldConfidence: Record<string, number>;
   inspection?: StoredInspection;
-};
+} & Partial<Record<CaseKeyField, string>>;
 
 // Below this, the agent asks for a clearer photo instead of explaining.
 export const MIN_CONFIDENCE = 0.6;
@@ -130,6 +147,8 @@ Rules:
 - Dates must be ISO (YYYY-MM-DD). Amounts are plain numbers in USD.
 - NEVER output a full SSN, EIN, ITIN, or bank account number anywhere, in any field. Mask to the last 4 digits ("EIN ending 6789") and list them in identifiersMasked.
 - Classify by the notice code and agency actually printed. A letter that mentions the IRS but has no real notice code, demands gift cards, crypto, or wire transfers, threatens arrest, or uses an agency name that does not exist is NOT a real notice: use UNKNOWN.
+- CP504 and its business version CP504B are IRS_CP504.
+- taxForm, taxPeriodEnd, taxYear, einLast4 and referencedNoticeDates link a later notice to an earlier one about the same tax: fill them whenever they're printed.
 - Menus, receipts, ads, personal letters and anything outside the listed types: UNKNOWN.
 - For health inspections, list every violation and mark each as major or minor as printed.
 - requestedPaymentMethods and pressureTactics: copy them from the document even when it looks like a scam. They drive the scam check.
@@ -182,8 +201,16 @@ function dropNulls(value: unknown): unknown {
 
 function toStoredExtraction(raw: ModelExtraction): Extraction {
   const masked = maskDeep(raw, "") as ModelExtraction;
+  const { taxForm, taxPeriodEnd, taxYear, einLast4, facilityId, ...rest } = masked;
+  // Nulls become missing fields, and the EIN is never more than its last 4 digits.
+  const clean = (s: string | null) => s?.trim() || undefined;
   return {
-    ...masked,
+    ...rest,
+    taxForm: clean(taxForm),
+    taxPeriodEnd: clean(taxPeriodEnd),
+    taxYear: clean(taxYear),
+    einLast4: einLast4?.replace(/\D/g, "").slice(-4) || undefined,
+    facilityId: clean(facilityId),
     inspection: masked.inspection && (dropNulls(masked.inspection) as StoredInspection),
     fieldConfidence: Object.fromEntries(
       masked.fieldConfidence.map((f) => [f.field, f.confidence]),
@@ -200,6 +227,7 @@ export async function extractFromStorage(
   ctx: ActionCtx,
   storageId: Id<"_storage">,
   mimeType: string,
+  hint?: string,
 ): Promise<Extraction> {
   if (!SUPPORTED_TYPES.includes(mimeType)) {
     throw new Error(`Unsupported file type: ${mimeType}`);
@@ -214,7 +242,12 @@ export async function extractFromStorage(
       role: "user",
       content: [
         { type: "file", data: bytes, mediaType: mimeType },
-        { type: "text", text: "Extract the data from this document." },
+        {
+          type: "text",
+          text: hint
+            ? `Extract the data from this document. The owner's note, a hint only (classify by what is printed): ${hint}`
+            : "Extract the data from this document.",
+        },
       ],
     },
   ];
@@ -242,7 +275,7 @@ export async function runExtraction(
 ): Promise<ExtractionRun> {
   const doc = await ctx.runMutation(internal.documents.markExtracting, { documentId });
   try {
-    const extraction = await extractFromStorage(ctx, doc.storageId, doc.mimeType);
+    const extraction = await extractFromStorage(ctx, doc.storageId, doc.mimeType, doc.hint);
     const { caseId }: { caseId: Id<"cases"> | null } = await ctx.runMutation(
       internal.documents.saveExtraction,
       {

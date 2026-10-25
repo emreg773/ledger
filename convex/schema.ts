@@ -273,7 +273,8 @@ export default defineSchema({
     .index("by_owner", ["ownerId"])
     .index("by_owner_and_status", ["ownerId", "status"])
     .index("by_source_and_sourceRef", ["source", "sourceRef"])
-    .index("by_storageId", ["storageId"]),
+    .index("by_storageId", ["storageId"])
+    .index("by_case", ["caseId"]),
 
   cases: defineTable({
     ownerId: v.id("owners"),

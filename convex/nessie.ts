@@ -10,6 +10,8 @@ import {
 import type { Doc, Id } from "./_generated/dataModel";
 import { logEvent } from "./events";
 import { findAgency } from "./officialContacts";
+import { caseNotices } from "./documents";
+import { nowMs } from "./clock";
 
 // Nessie bank (Capital One's sandbox API), live or mock, chosen by NESSIE_MODE.
 //
@@ -322,7 +324,18 @@ export const getCaseForBankCheck = internalQuery({
     if (!c) return null;
     const doc = await ctx.db.get(c.documentId);
     const owner = await ctx.db.get(c.ownerId);
-    return { case: c, extraction: doc?.extraction as { issuer?: { agencyName: string }; noticeDate?: string } | undefined, owner };
+    // A later notice (a CP504 after a CP14) asks for more, as penalties and
+    // interest grow, so a payment matching any notice of the case counts.
+    const noticeAmounts = (await caseNotices(ctx, caseId))
+      .map((n) => n.extraction.amountDue)
+      .filter((a): a is number => a !== undefined);
+    return {
+      case: c,
+      extraction: doc?.extraction as { issuer?: { agencyName: string }; noticeDate?: string } | undefined,
+      owner,
+      noticeAmounts,
+      nowMs: await nowMs(ctx, c.ownerId),
+    };
   },
 });
 
@@ -335,18 +348,20 @@ export async function checkBankHistory(
 ): Promise<BankCheckResult> {
   const found = await ctx.runQuery(internal.nessie.getCaseForBankCheck, { caseId });
   if (!found || found.case.ownerId !== ownerId) throw new Error(`Case not found: ${caseId}`);
-  const { case: c, extraction, owner } = found;
+  const { case: c, extraction, owner, noticeAmounts } = found;
   if (!owner?.nessieAccountId) throw new Error("No bank account linked. Run npm run reset.");
 
   const snapshot = await getSnapshot(ctx, owner.nessieAccountId);
-  const since = new Date(Date.now() - LOOKBACK_DAYS * 86_400_000).toISOString().slice(0, 10);
+  // The demo clock decides "the last 120 days".
+  const since = new Date(found.nowMs - LOOKBACK_DAYS * 86_400_000).toISOString().slice(0, 10);
+  const amounts = [...new Set([...(c.amountDue === undefined ? [] : [c.amountDue]), ...noticeAmounts])];
   const agencyName = extraction?.issuer?.agencyName ?? "";
   const matches =
     c.amountDue === undefined
       ? []
       : snapshot.payments
           .filter((p) => p.date >= since)
-          .filter((p) => Math.abs(p.amount - c.amountDue!) <= AMOUNT_TOLERANCE)
+          .filter((p) => amounts.some((a) => Math.abs(p.amount - a) <= AMOUNT_TOLERANCE))
           .filter((p) => payeeMatches(p.payee, agencyName))
           .sort((a, b) => b.date.localeCompare(a.date));
 
@@ -394,7 +409,7 @@ export const getActionForPayment = internalQuery({
     const action = await ctx.db.get(actionId);
     if (!action) return null;
     const owner = await ctx.db.get(action.ownerId);
-    return { action, owner };
+    return { action, owner, nowMs: await nowMs(ctx, action.ownerId) };
   },
 });
 
@@ -416,7 +431,7 @@ export const payBill = internalAction({
 
     const p = action.payload as { amount: number; payee: string; memo?: string };
     const payment: BankPayment = {
-      date: new Date().toISOString().slice(0, 10),
+      date: new Date(found.nowMs).toISOString().slice(0, 10), // the demo clock's today
       amount: p.amount,
       payee: p.payee,
       memo: p.memo,

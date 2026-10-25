@@ -224,5 +224,19 @@
   "mail.openInLedger": "Ledger'da aç",
   "mail.reading": "Ledger eki okuyor…",
   "mail.readWithLedger": "Ledger'a okut",
-  "mail.openInGmail": "Gmail"
+  "mail.openInGmail": "Gmail",
+  "caseHistory.open": "Dosya geçmişi",
+  "caseHistory.title": "Dosya geçmişi",
+  "caseHistory.description": "Bu dosyadaki her mektup, ödeme ve adım, en eskisinden başlayarak.",
+  "caseHistory.empty": "Bu dosyada henüz bir şey yok.",
+  "caseHistory.secondNotice": "2. bildirim",
+  "caseHistory.bankPayment": "Banka ödemesi: {payee} alıcısına {amount}",
+  "caseHistory.linked": "Bu dosyaya yeni bir mektup eklendi",
+  "caseHistory.opened": "Dosya açıldı",
+  "caseHistory.taskDone": "Görev tamamlandı",
+  "caseHistory.taskOpen": "Yapılacak görev",
+  "caseHistory.actionDone": "Tamamlandı",
+  "caseHistory.actionOpen": "Onayınızı bekliyor",
+  "caseHistory.actionRejected": "Reddettiniz",
+  "caseHistory.actionFailed": "Tamamlanamadı"
 }
