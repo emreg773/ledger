@@ -1,21 +1,55 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Bell, Loader2, Share, X } from "lucide-react";
+import { useMutation, useQuery } from "convex/react";
+import { Bell, X } from "lucide-react";
+import { api } from "@/convex/_generated/api";
 import { Button } from "@/components/ui/button";
+import { errorMessage } from "@/lib/errors";
 import { useI18n } from "@/lib/i18n";
-import type { usePush } from "@/lib/push";
 
-// The in-chat prompt to turn on notifications (docs/ledger-step3-B.md, 6).
-// It asks only from a tap. On iPhone in Safari it shows install steps instead,
-// because iOS only allows web push for apps added to the Home Screen.
+// The prompt to turn on notifications. Notifications are Telegram messages
+// from the Ledger bot (convex/nudges.ts), so turning them on means linking
+// Telegram. Web push is off for now; its hook stays in lib/push.ts.
 
-const DISMISS_KEY = "ledger.pushBannerDismissed";
+const DISMISS_KEY = "ledger.telegramBannerDismissed";
 
-export function NotificationBanner({ push }: { push: ReturnType<typeof usePush> }) {
+/** Telegram link state and actions, shared by this banner and the app menu. */
+export function useTelegram({ preview = false }: { preview?: boolean } = {}) {
   const { t } = useI18n();
+  const status = useQuery(api.telegram.status, preview ? "skip" : {});
+  const createLink = useMutation(api.telegram.createLinkCode);
+  const disconnect = useMutation(api.telegram.disconnect);
+  const [error, setError] = useState<string | null>(null);
+
+  async function connect() {
+    setError(null);
+    // Open the tab now, while the tap still counts, and fill in the link after.
+    const tab = window.open("", "_blank");
+    try {
+      const url = await createLink({});
+      if (tab) tab.location.replace(url);
+      else window.location.assign(url);
+    } catch (e) {
+      tab?.close();
+      setError(errorMessage(t, e, "action.error"));
+    }
+  }
+
+  return {
+    available: preview || Boolean(status?.available),
+    linked: Boolean(status?.linked),
+    loading: !preview && status === undefined,
+    error,
+    connect,
+    disconnect: () => void disconnect({}),
+  };
+}
+
+export function NotificationBanner({ preview = false }: { preview?: boolean }) {
+  const { t } = useI18n();
+  const telegram = useTelegram({ preview });
   const [dismissed, setDismissed] = useState(true);
-  const [failed, setFailed] = useState(false);
 
   useEffect(() => {
     let value = false;
@@ -26,10 +60,7 @@ export function NotificationBanner({ push }: { push: ReturnType<typeof usePush> 
     setDismissed(value);
   }, []);
 
-  if (dismissed) return null;
-  if (push.state !== "default" && push.state !== "needs_install" && push.state !== "denied") {
-    return null;
-  }
+  if (dismissed || telegram.loading || !telegram.available || telegram.linked) return null;
 
   const dismiss = () => {
     setDismissed(true);
@@ -48,51 +79,18 @@ export function NotificationBanner({ push }: { push: ReturnType<typeof usePush> 
       >
         <X className="size-4" />
       </button>
-      {push.state === "needs_install" ? (
-        <div className="space-y-1.5">
+      <div className="space-y-2 lg:flex lg:items-center lg:gap-4 lg:space-y-0">
+        <div className="min-w-0 lg:flex-1">
           <div className="flex items-center gap-2 font-medium">
-            <Bell className="size-4" /> {t("push.installTitle")}
+            <Bell className="size-4" /> {t("telegram.bannerTitle")}
           </div>
-          <ol className="list-decimal space-y-0.5 pl-5 text-muted-foreground">
-            <li>
-              {t("push.installStep1")} <Share className="inline size-3.5 align-[-2px]" />
-            </li>
-            <li>{t("push.installStep2")}</li>
-            <li>{t("push.installStep3")}</li>
-          </ol>
+          <p className="text-muted-foreground">{t("telegram.bannerBody")}</p>
+          {telegram.error && <p className="text-destructive">{telegram.error}</p>}
         </div>
-      ) : push.state === "denied" ? (
-        <div className="space-y-1">
-          <div className="flex items-center gap-2 font-medium">
-            <Bell className="size-4" /> {t("push.deniedTitle")}
-          </div>
-          <p className="text-muted-foreground">{t("push.deniedBody")}</p>
-        </div>
-      ) : (
-        <div className="space-y-2 lg:flex lg:items-center lg:gap-4 lg:space-y-0">
-          <div className="min-w-0 lg:flex-1">
-            <div className="flex items-center gap-2 font-medium">
-              <Bell className="size-4" /> {t("push.bannerTitle")}
-            </div>
-            <p className="text-muted-foreground lg:truncate">{t("push.bannerBody")}</p>
-            {failed && <p className="text-destructive">{t("push.failed")}</p>}
-          </div>
-          <Button
-            className="lg:shrink-0"
-            disabled={push.busy}
-            onClick={() => {
-              setFailed(false);
-              push.enable().catch((e) => {
-                console.error(e);
-                setFailed(true);
-              });
-            }}
-          >
-            {push.busy && <Loader2 className="animate-spin" />}
-            {t("push.turnOn")}
-          </Button>
-        </div>
-      )}
+        <Button className="lg:shrink-0" onClick={() => void telegram.connect()}>
+          {t("telegram.connect")}
+        </Button>
+      </div>
     </div>
   );
 }

@@ -1,9 +1,10 @@
 import { v } from "convex/values";
 import { internalMutation, internalQuery, mutation, query, type QueryCtx } from "./_generated/server";
-import type { Id } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
 import { logEvent } from "./events";
 import { MIN_CONFIDENCE, type Extraction } from "./extraction";
 import { requireOwner, viewerOwner } from "./access";
+import { nowMs } from "./clock";
 
 // Short titles for cases, in English. The agent translates when it talks.
 const CASE_TITLES: Record<string, string> = {
@@ -78,6 +79,18 @@ function linkSummary(x: Extraction, prior: Extraction | undefined): string {
   return `${code(x)} linked to ${from} (${same})`;
 }
 
+/** A document's files in page order: page 1, then any extra pages. */
+export async function documentFiles(ctx: QueryCtx, doc: Doc<"documents">) {
+  const extra = await ctx.db
+    .query("documentPages")
+    .withIndex("by_document", (q) => q.eq("documentId", doc._id))
+    .collect();
+  return [
+    { storageId: doc.storageId, mimeType: doc.mimeType },
+    ...extra.map((p) => ({ storageId: p.storageId, mimeType: p.mimeType })),
+  ];
+}
+
 export const generateUploadUrl = mutation({
   args: {},
   handler: async (ctx) => {
@@ -99,8 +112,30 @@ export const listForOwner = query({
       .order("desc")
       .take(50);
     return await Promise.all(
-      docs.map(async (d) => ({ ...d, url: await ctx.storage.getUrl(d.storageId) })),
+      docs.map(async (d) => {
+        const pages = await Promise.all(
+          (await documentFiles(ctx, d)).map(async (f) => ({
+            mimeType: f.mimeType,
+            url: await ctx.storage.getUrl(f.storageId),
+          })),
+        );
+        return { ...d, url: pages[0].url, pages };
+      }),
     );
+  },
+});
+
+/** The owner had this letter's card on screen in the app. Stops its "not opened" nudge. */
+export const markOpened = mutation({
+  args: { documentId: v.id("documents") },
+  handler: async (ctx, { documentId }) => {
+    const owner = await requireOwner(ctx);
+    const doc = await ctx.db.get(documentId);
+    if (!doc || doc.ownerId !== owner._id || doc.status !== "extracted" || doc.openedAt !== undefined) {
+      return null;
+    }
+    await ctx.db.patch(documentId, { openedAt: await nowMs(ctx, owner._id) });
+    return null;
   },
 });
 
@@ -110,7 +145,7 @@ export const markExtracting = internalMutation({
     const doc = await ctx.db.get(documentId);
     if (!doc) throw new Error(`Document not found: ${documentId}`);
     await ctx.db.patch(documentId, { status: "extracting", error: undefined });
-    return doc;
+    return { ...doc, files: await documentFiles(ctx, doc) };
   },
 });
 
@@ -137,7 +172,8 @@ export const saveExtraction = internalMutation({
     const doc = await ctx.db.get(args.documentId);
     if (!doc) throw new Error(`Document not found: ${args.documentId}`);
 
-    await ctx.db.patch(doc._id, { status: "extracted", extraction });
+    const now = await nowMs(ctx, doc.ownerId);
+    await ctx.db.patch(doc._id, { status: "extracted", extraction, extractedAt: doc.extractedAt ?? now });
 
     const amount = extraction.amountDue !== undefined ? `, $${extraction.amountDue}` : "";
     const deadline = extraction.deadline ? `, deadline ${extraction.deadline}` : "";
@@ -160,7 +196,8 @@ export const saveExtraction = internalMutation({
       docType: extraction.docType,
       title,
       amountDue: extraction.amountDue,
-      deadline: extraction.deadline,
+      // A health inspection's deadline is its reinspection date.
+      deadline: extraction.deadline ?? extraction.inspection?.reinspectionDate,
       ...(caseKey ? { caseKey } : {}),
     };
 
@@ -246,6 +283,7 @@ export const saveExtraction = internalMutation({
       stage: 1,
       status: "open",
       createdAt: Date.now(),
+      startedAt: now,
     });
     await ctx.db.patch(doc._id, { caseId });
     await logEvent(ctx, {

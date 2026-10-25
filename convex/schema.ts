@@ -62,8 +62,8 @@ export const taskStatus = v.union(
 
 // Notification center categories. needs_action: the owner has a decision to
 // make. alert: a suspected scam or something that failed. letter: a letter was
-// read. done: a payment or task finished. reminder (Step 4): a deadline
-// reminder, the weekly roundup or a nudge.
+// read. done: a payment or task finished. reminder (Step 4): a Telegram nudge
+// (nudges.ts).
 export const notificationCategory = v.union(
   v.literal("needs_action"),
   v.literal("alert"),
@@ -224,12 +224,40 @@ export default defineSchema({
     caseId: v.optional(v.id("cases")),
     // Step 4: the owner's caption (e.g. on Telegram). A hint only; the document decides.
     hint: v.optional(v.string()),
+    // Demo-clock times (clock.ts) for nudges.ts: when Ledger read it, and when
+    // the owner first had its card on screen in the app.
+    extractedAt: v.optional(v.number()),
+    openedAt: v.optional(v.number()),
+    // The conversation it was sent in (conversations.ts). Unset: owners.agentThreadId.
+    threadId: v.optional(v.string()),
   })
     .index("by_owner", ["ownerId"])
     .index("by_owner_and_status", ["ownerId", "status"])
     .index("by_source_and_sourceRef", ["source", "sourceRef"])
     .index("by_storageId", ["storageId"])
     .index("by_case", ["caseId"]),
+
+  // Conversation history (conversations.ts): one row per agent thread.
+  conversations: defineTable({
+    ownerId: v.id("owners"),
+    threadId: v.string(),
+    title: v.optional(v.string()), // the first typed message or caption
+    documentId: v.optional(v.id("documents")), // the letter that started it
+    createdAt: v.number(),
+    lastMessageAt: v.number(),
+  })
+    .index("by_owner", ["ownerId", "lastMessageAt"])
+    .index("by_thread", ["threadId"]),
+
+  // Pages 2+ of a document sent as several files (page 1 is documents.storageId).
+  documentPages: defineTable({
+    documentId: v.id("documents"),
+    page: v.number(), // 2, 3, ...
+    storageId: v.id("_storage"),
+    mimeType: v.string(),
+  })
+    .index("by_document", ["documentId", "page"])
+    .index("by_storageId", ["storageId"]),
 
   cases: defineTable({
     ownerId: v.id("owners"),
@@ -247,6 +275,8 @@ export default defineSchema({
     // Step 4: case memory. Letters with the same key join one case (documents.ts caseKeyOf).
     caseKey: v.optional(v.string()),
     stage: v.optional(v.number()), // 1: first notice, 2: an escalation (CP504 after CP14)
+    // Demo-clock time the case opened; nudges count days from it (createdAt is real time).
+    startedAt: v.optional(v.number()),
   })
     .index("by_owner", ["ownerId"])
     .index("by_owner_and_status", ["ownerId", "status"])
@@ -260,8 +290,8 @@ export default defineSchema({
     createdAt: v.number(),
   }).index("by_code", ["code"]),
 
-  // Step 4: reminders and nudges already sent, so none repeats. Key examples:
-  // "deadline|<itemKey>|<offset>", Person B's "nudge|...", "roundup|...".
+  // Step 4: nudges already sent, so none repeats (nudges.ts). Keys:
+  // "nudge|day|<isoDate>", "nudge|case|<caseId>|<level>", "nudge|unopened|<documentId>".
   sentLog: defineTable({
     ownerId: v.id("owners"),
     key: v.string(),
@@ -283,6 +313,8 @@ export default defineSchema({
     executedAt: v.optional(v.number()),
     // The agent message whose [action:<id>] marker shows this action's card.
     threadMessageId: v.optional(v.string()),
+    // The conversation it was proposed in. Unset: owners.agentThreadId.
+    threadId: v.optional(v.string()),
   })
     .index("by_case", ["caseId"])
     .index("by_owner_and_status", ["ownerId", "status"]),

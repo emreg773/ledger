@@ -1,4 +1,5 @@
 import { components, internal } from "./_generated/api";
+import { deleteConversations } from "./conversations";
 import { internalMutation, type MutationCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import { deleteMockBank } from "./nessie";
@@ -20,6 +21,7 @@ export async function deleteOwnerData(ctx: MutationCtx, owner: Doc<"owners">) {
       threadId: owner.agentThreadId,
     });
   }
+  await deleteConversations(ctx, ownerId);
   const documents = await ctx.db
     .query("documents")
     .withIndex("by_owner", (q) => q.eq("ownerId", ownerId))
@@ -28,6 +30,16 @@ export async function deleteOwnerData(ctx: MutationCtx, owner: Doc<"owners">) {
     .query("generatedDocuments")
     .withIndex("by_owner", (q) => q.eq("ownerId", ownerId))
     .collect();
+  for (const doc of documents) {
+    const pages = await ctx.db
+      .query("documentPages")
+      .withIndex("by_document", (q) => q.eq("documentId", doc._id))
+      .collect();
+    for (const page of pages) {
+      await ctx.storage.delete(page.storageId);
+      await ctx.db.delete(page._id);
+    }
+  }
   for (const file of [...documents, ...generated]) {
     await ctx.storage.delete(file.storageId);
     await ctx.db.delete(file._id);
@@ -132,7 +144,7 @@ export const resetDemo = internalMutation({
 const ORPHAN_AGE_MS = 60 * 60 * 1000;
 
 /**
- * Hourly (crons.ts): deletes uploads older than an hour that no document uses.
+ * Hourly (crons.ts): deletes uploads older than an hour that no document or page uses.
  * These are files whose ingest was refused (wrong type, too large, rate limited)
  * or never called; the refusal can't delete them itself because it throws.
  */
@@ -150,6 +162,10 @@ export const cleanupOrphanUploads = internalMutation({
       const used =
         (await ctx.db
           .query("documents")
+          .withIndex("by_storageId", (q) => q.eq("storageId", file._id))
+          .first()) ??
+        (await ctx.db
+          .query("documentPages")
           .withIndex("by_storageId", (q) => q.eq("storageId", file._id))
           .first()) ??
         (await ctx.db

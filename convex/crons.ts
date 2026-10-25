@@ -9,7 +9,7 @@ crons.interval("delete unused uploads", { hours: 1 }, internal.admin.cleanupOrph
 // Connected Google Calendars, so new and changed events show up within the hour.
 crons.interval("sync google calendars", { hours: 1 }, internal.googleCalendar.syncAll, {});
 
-// Deadline reminders for every owner, by each owner's demo clock (deadlines.ts).
-crons.interval("deadline reminders", { hours: 1 }, internal.deadlines.runDueAll, {});
+// Telegram nudges for every linked owner, by each owner's demo clock (nudges.ts).
+crons.interval("telegram nudges", { hours: 1 }, internal.nudges.runDueAll, {});
 
 export default crons;

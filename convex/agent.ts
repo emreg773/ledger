@@ -53,7 +53,18 @@ Accuracy and safety:
   professional (CPA, enrolled agent, or lawyer).
 - End explanations of legal or tax documents with one short line saying this is not legal or tax advice.
 
+${glossaryRule(languageCode, language)}
 ${STEP2_RULES}${sampleWatermarkRule()}`;
+}
+
+// The playbook glossaries pair English with Spanish. An English-speaking owner
+// gets plain English: no terms from other languages in parentheses.
+function glossaryRule(languageCode: string, language: string) {
+  if (languageCode === "en") {
+    return `- Write in plain English. Don't add terms in other languages, even when a playbook glossary lists them.`;
+  }
+  return `- Use the playbook glossary: write key terms in ${language} with the English term in parentheses, e.g. "multa (penalty)".
+  The glossary gives Spanish; for other languages, translate the term yourself.`;
 }
 
 // Step 2 workflow (Step 2 brief, Track A, Section 6). The code enforces what it can:
@@ -62,7 +73,6 @@ ${STEP2_RULES}${sampleWatermarkRule()}`;
 const STEP2_RULES = `Investigating:
 - Investigate before you speak: verify the sender, load the playbook, and check the bank first.
 - Lead with the most important fact: is the letter real, the amount, the deadline, and whether it is already paid.
-- Use the playbook glossary: write key terms in the owner's language with the English term in parentheses, e.g. "multa (penalty)".
 - Amounts and dates must come from tool results. Never compute or reformat them yourself beyond what the tools return.
   The one exception: write an ISO date in words in the owner's language (2026-10-02 becomes "2 de octubre de 2026"),
   without changing it.
@@ -107,7 +117,12 @@ Proposals:
   question: was there a reason the 1099s were filed late? If yes, Ledger will prepare a dispute statement explaining
   reasonable cause (coming soon).
 - COUNTY_HEALTH_INSPECTION: explain the placard color and what it means, the score, each major violation in one short
-  line, and the reinspection date. Say a fix checklist is coming soon. No proposals.
+  line, and the reinspection date. Then propose one owner_task with the fix checklist: summary "Fix the open violations
+  before the <reinspection date> reinspection"; instructions: one short line in the owner's language, with the date in
+  words; checklist: one item per violation that was not corrected on site, each written as the fix in plain words in
+  the owner's language (e.g. "Put a thermometer in reach-in cooler #2"). Don't list violations already corrected; in
+  the reply, say they were fixed and must stay fixed. Don't list the open violations in the reply too: the checklist
+  card shows them. If every violation was corrected on site, propose nothing and say so.
 
 Message format:
 - Don't write any text before or between tool calls. Write only the final reply, once every tool has returned.
@@ -264,6 +279,10 @@ const proposeInput = z.object({
     payee: z.string().optional().describe('pay_bill: e.g. "United States Treasury"'),
     memo: z.string().optional().describe('pay_bill: e.g. "CP14, Form 941, period ending 2026-06-30"'),
     instructions: z.string().optional().describe("owner_task: what the owner should do, in the owner's language"),
+    checklist: z
+      .array(z.string())
+      .optional()
+      .describe("owner_task: the steps to do, one short line each, in the owner's language (e.g. a fix checklist)"),
     phone: z.string().optional().describe("owner_task: the official number to call"),
     callScript: z
       .object({ en: z.string(), translated: z.string() })
@@ -327,6 +346,9 @@ const proposeAction: Tool<ProposeInput, ProposeOutput> = createTool({
       if (!payload.instructions) return { ok: false, error: "instructions are required for an owner_task." };
       finalPayload = {
         instructions: payload.instructions,
+        checklist: payload.checklist?.filter((item) => item.trim()).slice(0, 30),
+        // Like pay_bill, the due date comes from the case, never the model.
+        dueDate: c.deadline,
         phone: payload.phone,
         callScript: payload.callScript,
         payment: payload.payment,
@@ -339,6 +361,7 @@ const proposeAction: Tool<ProposeInput, ProposeOutput> = createTool({
       type,
       summary,
       payload: finalPayload,
+      threadId: ctx.threadId,
     });
     return { ok: true, actionId, marker: actionMarker(actionId) };
   },
@@ -373,17 +396,18 @@ function withoutReasoning(message: ModelMessage): ModelMessage {
   return { ...message, content: message.content.filter((part) => part.type !== "reasoning") };
 }
 
-/** Runs the agent on the owner's thread, answering the given prompt message. */
+/** Runs the agent on one of the owner's conversations, answering the given prompt message. */
 export const respond = internalAction({
   args: {
     ownerId: v.id("owners"),
+    threadId: v.string(),
     promptMessageId: v.string(),
     // Set when this run was started by a new document.
     documentId: v.optional(v.id("documents")),
     // Set when this run is the follow-up reply to an action (notifyActionResult).
     afterActionId: v.optional(v.id("actions")),
   },
-  handler: async (ctx, { ownerId, promptMessageId, documentId, afterActionId }) => {
+  handler: async (ctx, { ownerId, threadId, promptMessageId, documentId, afterActionId }) => {
     const owner = await ctx.runQuery(internal.owners.get, { ownerId });
     if (!owner) throw new Error(`Owner not found: ${ownerId}`);
 
@@ -391,7 +415,7 @@ export const respond = internalAction({
     try {
       await ledgerAgent.generateText(
         ctx,
-        { threadId: owner.agentThreadId, userId: ownerId },
+        { threadId, userId: ownerId },
         {
           promptMessageId,
           // The demo clock's date (clock.ts), so "today" matches skipped-ahead time.
@@ -411,7 +435,7 @@ export const respond = internalAction({
       const error = e instanceof Error ? e.message : String(e);
       await ctx.runMutation(internal.agent.recordFailure, {
         ownerId,
-        threadId: owner.agentThreadId,
+        threadId,
         promptMessageId,
         documentId,
         error,
@@ -496,13 +520,16 @@ export const notifyActionResult = internalMutation({
     // The global daily cap also covers follow-up replies. Over it, the card still
     // shows the result; only the chat reply (and its push) is skipped.
     if (!(await tryAgentRun(ctx, ownerId))) return null;
+    // The reply goes in the conversation the action was proposed in.
+    const threadId = action.threadId ?? owner.agentThreadId;
     const { messageId } = await saveMessage(ctx, components.agent, {
-      threadId: owner.agentThreadId,
+      threadId,
       userId: ownerId,
       prompt: `${SYSTEM_NOTE_PREFIX} ${note} Don't propose new actions in this reply.`,
     });
     await ctx.scheduler.runAfter(0, internal.agent.respond, {
       ownerId,
+      threadId,
       promptMessageId: messageId,
       // A push follows the reply for executed and failed actions, not rejections.
       afterActionId: action.status === "rejected" ? undefined : actionId,
