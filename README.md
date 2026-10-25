@@ -20,7 +20,7 @@ The bank is a sandbox (Capital One's Nessie API, or a mock): money is fake, and 
 
 ## Stack
 
-Next.js 16 (App Router) + Tailwind 4 + shadcn/ui on Base UI · Convex (DB, storage, scheduler, crons, HTTP routes) · Convex Auth (Google) · `@convex-dev/agent` · `@convex-dev/rate-limiter` · Vercel AI SDK 7 + Anthropic (`claude-sonnet-5-5`, for chat and extraction; set in `convex/models.ts`) · `libphonenumber-js` · `web-push` · Vercel
+Next.js 16 (App Router) + Tailwind 4 + shadcn/ui on Base UI · Convex (DB, storage, scheduler, crons, HTTP routes) · Convex Auth (Google) · `@convex-dev/agent` · Vercel AI SDK 7 + Anthropic (`claude-sonnet-5-5`, for chat and extraction; set in `convex/models.ts`) · `libphonenumber-js` · `web-push` · Vercel
 
 Pinned versions that matter:
 
@@ -237,12 +237,12 @@ Owners can connect their Google Calendar; Ledger copies events and shows them on
 - `/privacy` and `/terms` are public (Google's consent screen requires them; the privacy policy covers Google Calendar and Google's Limited Use requirement). A contact email shows when `NEXT_PUBLIC_CONTACT_EMAIL` is set on Vercel.
 - `/dev` previews every card state with mock data (`lib/mocks.ts`) and returns 404 in production.
 
-### Accounts, ownership and limits
+### Accounts and ownership
 
 - **Sign-in:** Convex Auth with Google, client-only setup (`ConvexAuthProvider`, no `proxy.ts`). Routes live at `https://<deployment>.convex.site/api/auth/...`. Only name and email are requested.
 - **One owner per user:** `owners.completeOnboarding({ name, businessName, preferredLanguage, city? })` creates the owner, its agent thread and its bank (a second call updates the profile). Also `owners.me`, `setLanguage`, `resetMyData`, `deleteMyAccount`.
 - **Ownership** (`convex/access.ts`): `viewerOwner` (null when signed out, for queries), `requireOwner` (throws `not_signed_in` / `not_onboarded`), `requireOwnerOf` (throws `not_found` for missing rows and other owners' rows alike, so ids can't be probed). Every public function takes the owner from the session; queries return `null` / `[]` instead of throwing. `chat.listThreadMessages` throws unless the thread is the viewer's.
-- **Limits** (`convex/limits.ts`): 10 uploads and 40 chat messages per owner per hour; 600 agent runs per day across everyone (`LEDGER_DAILY_RUN_LIMIT`; `0` stops all runs). Refusals are `ConvexError({ code: "rate_limited", retryAfterMs })`. Over the daily cap, the follow-up reply after an action is skipped; the card still shows the result. Also set a monthly spend limit on the Anthropic key.
+- **No rate limits.** Uploads, chat and agent runs are unlimited; set a monthly spend limit on the Anthropic key.
 - **Errors** the UI translates (`lib/errors.ts`): `rate_limited`, `unsupported_file`, `file_too_large`, `not_signed_in`, `not_onboarded`.
 - **Deletion** (`convex/admin.ts`): `deleteOwnerData` is shared by "Start over" (keeps the owner, profile and Telegram link; reseeds the bank) and "Delete my account" (also the owner row, auth user, sessions, refresh tokens and accounts). These are the only places that delete events; the audit log is otherwise append-only.
 
@@ -416,7 +416,7 @@ convex/
   deadlines.ts, generalDates.ts   upcoming deadlines
   conversations.ts, chat.ts       threads and messages for the UI
   owners.ts, access.ts, auth.ts   accounts and ownership
-  limits.ts, crons.ts, admin.ts   rate limits, hourly jobs, deletion
+  crons.ts, admin.ts   hourly jobs, deletion
   events.ts            append-only audit log
   testing.ts           harness helpers (internal)
   http.ts              auth, /calendar/callback, /telegram/webhook

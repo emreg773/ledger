@@ -8,7 +8,6 @@ import type { StoredFile } from "./extraction";
 import { logEvent } from "./events";
 import { documentMarker } from "./shared";
 import { requireOwner } from "./access";
-import { checkAgentRun, checkOwnerLimit } from "./limits";
 import { ownedThread, startConversation, touchConversation } from "./conversations";
 import { SUPPORTED_TYPES } from "./extraction";
 
@@ -141,7 +140,6 @@ async function ingest(
 export const ingestDocument = internalMutation({
   args: ingestArgs,
   handler: async (ctx, args) => {
-    await checkAgentRun(ctx);
     return (await ingest(ctx, args)).documentId;
   },
 });
@@ -161,7 +159,6 @@ export const ingestWebUpload = mutation({
   },
   handler: async (ctx, { storageId, mimeType, hint, extraPages, threadId }) => {
     const owner = await requireOwner(ctx);
-    await checkOwnerLimit(ctx, owner._id, "upload");
     const result = await ingest(ctx, {
       ownerId: owner._id,
       storageId,

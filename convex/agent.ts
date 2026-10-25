@@ -13,7 +13,6 @@ import { getPlaybook } from "./playbooks";
 import type { Playbook } from "./playbooks/schema";
 import { checkSender, type SenderCheck } from "./senderCheck";
 import { checkBankHistory, type BankCheckResult, type PayBillResult } from "./nessie";
-import { tryAgentRun } from "./limits";
 import { timelineText } from "./cases";
 
 type ReadDocumentOutput =
@@ -537,9 +536,6 @@ export const notifyActionResult = internalMutation({
       return null;
     }
 
-    // The global daily cap also covers follow-up replies. Over it, the card still
-    // shows the result; only the chat reply (and its push) is skipped.
-    if (!(await tryAgentRun(ctx, ownerId))) return null;
     // The reply goes in the conversation the action was proposed in.
     const threadId = action.threadId ?? owner.agentThreadId;
     const { messageId } = await saveMessage(ctx, components.agent, {

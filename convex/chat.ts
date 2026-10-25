@@ -4,7 +4,6 @@ import { listUIMessages, saveMessage, syncStreams, vStreamArgs } from "@convex-d
 import { components, internal } from "./_generated/api";
 import { mutation, query } from "./_generated/server";
 import { requireOwner, viewerOwner } from "./access";
-import { checkOwnerLimit } from "./limits";
 import { ownedThread, startConversation, touchConversation } from "./conversations";
 
 /** Messages for the chat UI (shape required by useUIMessages). */
@@ -38,7 +37,6 @@ export const sendMessage = mutation({
     const ownerId = owner._id;
     const trimmed = text.trim();
     if (!trimmed) return null;
-    await checkOwnerLimit(ctx, ownerId, "chatMessage");
 
     const threadId = openThread
       ? await ownedThread(ctx, owner, openThread)
