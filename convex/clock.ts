@@ -13,8 +13,13 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** The owner's demo-adjusted time: Date.now() plus their clock offset. */
 export async function nowMs(ctx: QueryCtx | MutationCtx, ownerId: Id<"owners">): Promise<number> {
+  return Date.now() + (await clockOffsetMs(ctx, ownerId));
+}
+
+/** The owner's clock offset, 0 when not skipped. Stored on rows whose real-time timestamps the owner sees. */
+export async function clockOffsetMs(ctx: QueryCtx | MutationCtx, ownerId: Id<"owners">): Promise<number> {
   const owner = await ctx.db.get(ownerId);
-  return Date.now() + (owner?.clockOffsetMs ?? 0);
+  return owner?.clockOffsetMs ?? 0;
 }
 
 /**

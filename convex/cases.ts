@@ -128,8 +128,9 @@ async function buildTimeline(ctx: QueryCtx, c: Doc<"cases">): Promise<TimelineIt
     .query("actions")
     .withIndex("by_case", (q) => q.eq("caseId", c._id))
     .collect();
+  // Actions and events store real time; add the demo clock offset they were written at.
   for (const a of actions) {
-    const at = a.executedAt ?? a.decidedAt ?? a.createdAt;
+    const at = (a.executedAt ?? a.decidedAt ?? a.createdAt) + (a.clockOffsetMs ?? 0);
     items.push({
       at,
       date: isoDay(at),
@@ -147,7 +148,8 @@ async function buildTimeline(ctx: QueryCtx, c: Doc<"cases">): Promise<TimelineIt
     .collect();
   for (const e of events) {
     if (!TIMELINE_EVENTS.has(e.type)) continue;
-    items.push({ at: e.at, date: isoDay(e.at), kind: "event", title: e.summary, eventType: e.type });
+    const at = e.at + (e.clockOffsetMs ?? 0);
+    items.push({ at, date: isoDay(at), kind: "event", title: e.summary, eventType: e.type });
   }
 
   return items.sort((a, b) => a.at - b.at);

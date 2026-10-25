@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { internalMutation, internalQuery, query, type MutationCtx } from "./_generated/server";
 import { viewerOwner } from "./access";
+import { clockOffsetMs } from "./clock";
 import type { Id } from "./_generated/dataModel";
 
 // Audit log helpers. Every meaningful step writes one readable row.
@@ -15,7 +16,11 @@ export async function logEvent(
     data?: unknown;
   },
 ) {
-  await ctx.db.insert("events", { ...event, at: Date.now() });
+  await ctx.db.insert("events", {
+    ...event,
+    at: Date.now(),
+    clockOffsetMs: await clockOffsetMs(ctx, event.ownerId),
+  });
 }
 
 // For actions, which can't write to the db directly.

@@ -153,7 +153,7 @@ If a part is missing there's no key, and the letter opens its own case.
 
 - **Linking:** a letter with the same key joins the case in any status. The case takes the newest letter's `docType`, `title`, `amountDue` and `deadline`, goes back to `open`, and gets `stage: 2` when a CP504 follows a CP14 ("2nd notice" chip). It's logged as `case_linked` ("CP504B linked to the CP14 case from 2026-10-12 (same Form 941, period 2026-06-30)"), and its nudge levels restart from that day.
 - **Re-uploads** of the same notice (same type, notice date and amount, or same type, amount and deadline) set `documents.caseId` but add nothing: no new case, card or timeline entry.
-- **`cases.timeline({ caseId })`**: notices, bank matches, actions with their final status, and `case_opened` / `case_linked` events, oldest first (so the Oct 2 payment comes before the Oct 12 CP14). Shown in the "Case history" sheet from the document card.
+- **`cases.timeline({ caseId })`**: notices, bank matches, actions with their final status, and `case_opened` / `case_linked` events, oldest first (so the Oct 2 payment comes before the Oct 12 CP14). Actions and events are dated on the demo clock: each row stores the owner's `clockOffsetMs` when it was written. Shown in the "Case history" sheet from the document card.
 - **CP504 after a paid CP14:** the reply opens with "second notice", mentions the Oct 2 payment and the earlier call, proposes calling again to trace the payment (both notice dates and the payment date in the script), and never proposes paying.
 
 ### Demo clock

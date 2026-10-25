@@ -12,6 +12,7 @@ import {
 import type { Doc, Id } from "./_generated/dataModel";
 import { actionType } from "./schema";
 import { logEvent } from "./events";
+import { clockOffsetMs } from "./clock";
 import { requireOwnerOf, viewerOwner } from "./access";
 import { SYSTEM_NOTE_PREFIX } from "./shared";
 
@@ -104,6 +105,7 @@ export const propose = internalMutation({
       autonomyLevel,
       status: "proposed",
       createdAt: Date.now(),
+      clockOffsetMs: await clockOffsetMs(ctx, args.ownerId),
     });
     await logEvent(ctx, {
       ownerId: args.ownerId,
@@ -133,7 +135,11 @@ export const approve = mutation({
       throw new Error(`Only proposed actions can be approved; this one is ${action.status}.`);
     }
 
-    await ctx.db.patch(actionId, { status: "approved", decidedAt: Date.now() });
+    await ctx.db.patch(actionId, {
+      status: "approved",
+      decidedAt: Date.now(),
+      clockOffsetMs: await clockOffsetMs(ctx, action.ownerId),
+    });
     await logEvent(ctx, {
       ownerId: action.ownerId,
       caseId: action.caseId,
@@ -158,6 +164,7 @@ export const reject = mutation({
     await ctx.db.patch(actionId, {
       status: "rejected",
       decidedAt: Date.now(),
+      clockOffsetMs: await clockOffsetMs(ctx, action.ownerId),
       result: reason ? { reason } : undefined,
     });
     await logEvent(ctx, {
@@ -185,7 +192,12 @@ export const markDone = mutation({
       throw new Error(`Only proposed tasks can be marked done; this one is ${action.status}.`);
     }
     const now = Date.now();
-    await ctx.db.patch(actionId, { status: "executed", decidedAt: now, executedAt: now });
+    await ctx.db.patch(actionId, {
+      status: "executed",
+      decidedAt: now,
+      executedAt: now,
+      clockOffsetMs: await clockOffsetMs(ctx, action.ownerId),
+    });
     await logEvent(ctx, {
       ownerId: action.ownerId,
       caseId: action.caseId,
@@ -326,6 +338,7 @@ export const finish = internalMutation({
       status,
       result,
       executedAt: status === "executed" ? Date.now() : undefined,
+      ...(status === "executed" ? { clockOffsetMs: await clockOffsetMs(ctx, action.ownerId) } : {}),
     });
     let summary: string;
     if (status === "failed") {

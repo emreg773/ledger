@@ -324,6 +324,8 @@ export default defineSchema({
     createdAt: v.number(),
     decidedAt: v.optional(v.number()),
     executedAt: v.optional(v.number()),
+    // The owner's demo clock offset at the last of those; case history adds it.
+    clockOffsetMs: v.optional(v.number()),
     // The agent message whose [action:<id>] marker shows this action's card.
     threadMessageId: v.optional(v.string()),
     // The conversation it was proposed in. Unset: owners.agentThreadId.
@@ -387,6 +389,8 @@ export default defineSchema({
     summary: v.string(), // readable reason
     data: v.optional(v.any()),
     at: v.number(),
+    // The owner's demo clock offset when logged; case history shows at + this.
+    clockOffsetMs: v.optional(v.number()),
   })
     .index("by_owner", ["ownerId", "at"])
     .index("by_case", ["caseId", "at"]),
