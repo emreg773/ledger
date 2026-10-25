@@ -213,16 +213,18 @@ function GoogleCalendarLine({ status, preview }: { status: CalendarStatus | null
   const startConnect = useMutation(api.googleCalendar.startConnect);
   const disconnect = useMutation(api.googleCalendar.disconnect);
   const [pending, setPending] = useState(false);
-  const [notice, setNotice] = useState<"connected" | "error" | null>(null);
+  const [notice, setNotice] = useState<"connected" | "error" | "scope" | "cancelled" | null>(null);
 
   // Google sends the owner back to /?calendar=connected (or =error).
   useEffect(() => {
     const url = new URL(window.location.href);
     const result = url.searchParams.get("calendar");
     if (result !== "connected" && result !== "error") return;
+    const reason = url.searchParams.get("reason");
     // eslint-disable-next-line react-hooks/set-state-in-effect -- the URL is only readable after mount
-    setNotice(result);
+    setNotice(result === "error" && (reason === "scope" || reason === "cancelled") ? reason : result);
     url.searchParams.delete("calendar");
+    url.searchParams.delete("reason");
     window.history.replaceState(null, "", url);
   }, []);
 
@@ -243,6 +245,8 @@ function GoogleCalendarLine({ status, preview }: { status: CalendarStatus | null
   return (
     <div className="mt-2 border-t pt-2 text-xs">
       {notice === "error" && <p className="pb-1 text-destructive">{t("cal.connectError")}</p>}
+      {notice === "scope" && <p className="pb-1 text-destructive">{t("cal.scopeMissing")}</p>}
+      {notice === "cancelled" && <p className="pb-1 text-muted-foreground">{t("cal.cancelled")}</p>}
       {notice === "connected" && status.connected && !status.lastSyncedAt && (
         <p className="pb-1 text-muted-foreground">{t("cal.syncing")}</p>
       )}

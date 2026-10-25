@@ -189,5 +189,7 @@
   "cal.eventsOn": "{count} eventos del calendario",
   "cal.allDay": "todo el día",
   "cal.untitled": "(Sin título)",
-  "cal.openInGoogle": "Abrir en Google Calendar"
+  "cal.openInGoogle": "Abrir en Google Calendar",
+  "cal.scopeMissing": "Casi: en la pantalla de Google, marque la casilla para que Ledger vea sus calendarios y vuelva a conectar.",
+  "cal.cancelled": "No se conectó Google Calendar."
 }

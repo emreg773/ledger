@@ -135,14 +135,20 @@ export const disconnect = mutation({
 /** GET /calendar/callback?code&state from Google. Always ends on the app's home screen. */
 export const callback = httpAction(async (ctx, request) => {
   const url = new URL(request.url);
-  const back = (result: "connected" | "error") =>
-    Response.redirect(`${process.env.SITE_URL ?? ""}/?calendar=${result}`, 302);
+  const site = process.env.SITE_URL ?? "";
+  const connected = () => Response.redirect(`${site}/?calendar=connected`, 302);
+  // The reason goes to the logs and to the UI, which explains the fixable ones.
+  const failed = (reason: "cancelled" | "state" | "token" | "scope" | "no_refresh_token") => {
+    console.warn(`Google Calendar connect failed: ${reason}`);
+    return Response.redirect(`${site}/?calendar=error&reason=${reason}`, 302);
+  };
 
   const state = url.searchParams.get("state");
   const code = url.searchParams.get("code");
-  if (!state || !code) return back("error"); // includes the owner pressing Cancel
+  if (!code) return failed("cancelled"); // Cancel on Google's screen, or ?error=access_denied
+  if (!state) return failed("state");
   const ownerId = await ctx.runMutation(internal.googleCalendar.consumeState, { state });
-  if (!ownerId) return back("error");
+  if (!ownerId) return failed("state");
 
   const { id, secret } = clientCredentials();
   const res = await fetch(TOKEN_URL, {
@@ -158,7 +164,7 @@ export const callback = httpAction(async (ctx, request) => {
   });
   if (!res.ok) {
     console.error("Calendar token exchange failed", res.status, await res.text());
-    return back("error");
+    return failed("token");
   }
   const tokens = (await res.json()) as {
     access_token: string;
@@ -166,8 +172,11 @@ export const callback = httpAction(async (ctx, request) => {
     refresh_token?: string;
     scope?: string;
   };
-  // The owner can untick calendar access on Google's consent screen.
-  if (!tokens.scope?.split(" ").includes(SCOPE)) return back("error");
+  // Google shows calendar access as a checkbox, unticked by default.
+  if (!tokens.scope?.split(" ").includes(SCOPE)) {
+    await ctx.runMutation(internal.googleCalendar.logFailure, { ownerId, reason: "scope" });
+    return failed("scope");
+  }
 
   const saved = await ctx.runMutation(internal.googleCalendar.saveConnection, {
     ownerId,
@@ -175,9 +184,23 @@ export const callback = httpAction(async (ctx, request) => {
     accessToken: tokens.access_token,
     accessTokenExpiresAt: Date.now() + tokens.expires_in * 1000,
   });
-  if (!saved) return back("error");
+  if (!saved) return failed("no_refresh_token");
   await ctx.scheduler.runAfter(0, internal.googleCalendar.sync, { ownerId });
-  return back("connected");
+  return connected();
+});
+
+export const logFailure = internalMutation({
+  args: { ownerId: v.id("owners"), reason: v.string() },
+  handler: async (ctx, { ownerId, reason }) => {
+    await logEvent(ctx, {
+      ownerId,
+      type: "calendar_connect_failed",
+      summary:
+        reason === "scope"
+          ? "Google Calendar not connected: calendar access wasn't ticked on Google's screen"
+          : `Google Calendar not connected (${reason})`,
+    });
+  },
 });
 
 export const consumeState = internalMutation({

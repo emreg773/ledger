@@ -189,5 +189,7 @@
   "cal.eventsOn": "{count} takvim etkinliği",
   "cal.allDay": "tüm gün",
   "cal.untitled": "(Başlıksız)",
-  "cal.openInGoogle": "Google Takvim'de aç"
+  "cal.openInGoogle": "Google Takvim'de aç",
+  "cal.scopeMissing": "Az kaldı: Google'ın ekranında Ledger'ın takvimlerinizi görmesine izin veren kutuyu işaretleyip yeniden bağlayın.",
+  "cal.cancelled": "Google Takvim bağlanmadı."
 }
