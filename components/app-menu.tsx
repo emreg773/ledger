@@ -54,6 +54,23 @@ export function AppMenu({
   const setLanguage = useMutation(api.owners.setLanguage);
   const setCalendarFilter = useMutation(api.owners.setCalendarFilter);
   const calendar = useQuery(api.googleCalendar.status, preview ? "skip" : {});
+  const telegram = useQuery(api.telegram.status, preview ? "skip" : {});
+  const createTelegramLink = useMutation(api.telegram.createLinkCode);
+  const disconnectTelegram = useMutation(api.telegram.disconnect);
+
+  async function connectTelegram() {
+    setNote(null);
+    // Open the tab now, while the tap still counts, and fill in the link after.
+    const tab = window.open("", "_blank");
+    try {
+      const url = await createTelegramLink({});
+      if (tab) tab.location.replace(url);
+      else window.location.assign(url);
+    } catch (e) {
+      tab?.close();
+      setNote(errorMessage(t, e, "action.error"));
+    }
+  }
   const sendTest = useMutation(api.push.sendTest);
   const resetMyData = useMutation(api.owners.resetMyData);
   const deleteMyAccount = useMutation(api.owners.deleteMyAccount);
@@ -163,6 +180,24 @@ export function AppMenu({
                   >
                     {t("menu.sendTest")}
                   </DropdownMenuItem>
+                )}
+              </DropdownMenuGroup>
+            </>
+          )}
+          {telegram?.available && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuGroup>
+                <DropdownMenuLabel>Telegram</DropdownMenuLabel>
+                {telegram.linked ? (
+                  <>
+                    <DropdownMenuItem disabled>{t("telegram.connected")}</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => void disconnectTelegram({})}>
+                      {t("telegram.disconnect")}
+                    </DropdownMenuItem>
+                  </>
+                ) : (
+                  <DropdownMenuItem onClick={() => void connectTelegram()}>{t("telegram.connect")}</DropdownMenuItem>
                 )}
               </DropdownMenuGroup>
             </>
