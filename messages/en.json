@@ -228,5 +228,6 @@
   "clock.banner": "Demo date: {date}",
   "telegram.connect": "Connect Telegram",
   "telegram.connected": "Connected ✓ Send letters to the bot",
-  "telegram.disconnect": "Disconnect Telegram"
+  "telegram.disconnect": "Disconnect Telegram",
+  "home.caseLetters": "{count} letters"
 }

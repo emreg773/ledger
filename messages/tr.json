@@ -228,5 +228,6 @@
   "clock.banner": "Demo tarihi: {date}",
   "telegram.connect": "Telegram'ı bağla",
   "telegram.connected": "Bağlandı ✓ Mektupları bota gönderin",
-  "telegram.disconnect": "Telegram bağlantısını kes"
+  "telegram.disconnect": "Telegram bağlantısını kes",
+  "home.caseLetters": "{count} mektup"
 }

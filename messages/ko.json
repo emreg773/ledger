@@ -228,5 +228,6 @@
   "clock.banner": "데모 날짜: {date}",
   "telegram.connect": "텔레그램 연결",
   "telegram.connected": "연결됨 ✓ 봇에게 서류를 보내세요",
-  "telegram.disconnect": "텔레그램 연결 해제"
+  "telegram.disconnect": "텔레그램 연결 해제",
+  "home.caseLetters": "서류 {count}건"
 }
