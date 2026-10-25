@@ -7,7 +7,7 @@ import { useAuthActions } from "@convex-dev/auth/react";
 import {
   ArrowUp,
   BellRing,
-  Camera,
+  CalendarClock,
   Check,
   ChevronDown,
   Globe,
@@ -15,25 +15,28 @@ import {
   Loader2,
   Phone,
   Plus,
+  ScanText,
   ShieldCheck,
   Sparkles,
+  Store,
   Workflow,
 } from "lucide-react";
 import { LANGUAGES } from "@/convex/shared";
 import { docTypeName, useI18n, type MessageKey } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
-// What signed-out visitors see at /: the pitch, a played-back demo chat, and
-// Google sign-in. Dark on purpose, unlike the cream app behind it.
+// What signed-out visitors see at /: the pitch, a played-back demo chat, the
+// three products (Answer is live; Open and Shield are coming), and Google
+// sign-in. Dark on purpose, unlike the cream app behind it.
 
 // Questions owners actually type, each in its own language (not translated).
 const PROMPTS = [
-  "¿Qué dice esta carta del IRS?",
-  "这封信是什么意思？",
-  "Lá thư này nói gì vậy?",
-  "이 편지 진짜예요, 사기예요?",
-  "Bu mektup ne diyor?",
-  "Do I have to pay this?",
+  "¿Tengo que pagar esta multa del IRS?",
+  "卫生检查报告上说了什么？",
+  "Thông báo này có phải lừa đảo không?",
+  "이 벌금, 언제까지 내야 해요?",
+  "Bu vergi bildirimi ne diyor?",
+  "Do I have to pay this notice?",
 ];
 
 const DOC_TYPES = [
@@ -185,8 +188,9 @@ export function Landing({
         reduced={reduced}
       />
       <DocTypes />
+      <Promises />
       <Demo reduced={reduced} />
-      <HowItWorks />
+      <Products />
       <Features />
       <Languages language={language} onLanguage={onLanguage} />
       <FinalCta google={google} />
@@ -295,7 +299,7 @@ function Hero({
           className="landing-rise mt-6 max-w-xl text-base leading-relaxed text-pretty text-[#9a9aa2] sm:text-lg"
           style={{ animationDelay: "160ms" }}
         >
-          {t("signIn.pitch")}
+          {t("landing.subtitle")}
         </p>
 
         {/* The composer from the app, as the call to action. */}
@@ -548,33 +552,95 @@ function Letter() {
   );
 }
 
-const STEPS = [
-  { key: "snap", Icon: Camera },
-  { key: "read", Icon: Sparkles },
-  { key: "act", Icon: Check },
+// The three promises: reads every notice, tracks every deadline, manages follow-ups.
+const PROMISES = [
+  { key: "read", Icon: ScanText },
+  { key: "track", Icon: CalendarClock },
+  { key: "manage", Icon: Workflow },
 ] as const;
 
-function HowItWorks() {
+function Promises() {
   const { t } = useI18n();
   return (
-    <section className="border-t border-white/5 px-4 py-24 sm:px-6 sm:py-32">
+    <section className="px-4 py-24 sm:px-6 sm:py-32">
       <Reveal>
-        <SectionTitle eyebrow={t("landing.howEyebrow")} title={t("landing.howTitle")} />
+        <SectionTitle eyebrow={t("landing.promisesEyebrow")} title={t("landing.promisesTitle")} />
       </Reveal>
       <div className="mx-auto mt-16 grid max-w-5xl gap-4 md:grid-cols-3">
-        {STEPS.map(({ key, Icon }, i) => (
+        {PROMISES.map(({ key, Icon }, i) => (
           <Reveal key={key} delay={i * 110}>
-            <div className="group relative h-full overflow-hidden rounded-3xl border border-[#1c1c1f] bg-[#0a0a0b] p-7 transition-colors hover:border-[#2a2a2e]">
-              <span className="absolute top-5 right-6 font-mono text-5xl font-medium text-white/[0.05] transition-colors group-hover:text-[#f0b44c]/15">
-                0{i + 1}
-              </span>
+            <div className="h-full rounded-3xl border border-[#1c1c1f] bg-[#0a0a0b] p-7 transition-colors hover:border-[#2a2a2e]">
               <span className="grid size-11 place-items-center rounded-2xl bg-white/[0.05] text-[#f0b44c]">
                 <Icon className="size-5" />
               </span>
               <h3 className="mt-6 text-xl font-medium tracking-tight">
-                {t(`landing.step.${key}.title` as MessageKey)}
+                {t(`landing.promise.${key}.title` as MessageKey)}
               </h3>
-              <p className="mt-2 leading-relaxed text-[#9a9aa2]">{t(`landing.step.${key}.body` as MessageKey)}</p>
+              <p className="mt-2 leading-relaxed text-[#9a9aa2]">
+                {t(`landing.promise.${key}.body` as MessageKey)}
+              </p>
+            </div>
+          </Reveal>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+const PRODUCTS = [
+  { key: "answer", Icon: Landmark, live: true },
+  { key: "open", Icon: Store, live: false },
+  { key: "shield", Icon: ShieldCheck, live: false },
+] as const;
+
+function Products() {
+  const { t } = useI18n();
+  return (
+    <section className="border-t border-white/5 px-4 py-24 sm:px-6 sm:py-32">
+      <Reveal>
+        <SectionTitle eyebrow={t("landing.productsEyebrow")} title={t("landing.productsTitle")} />
+      </Reveal>
+      <div className="mx-auto mt-16 grid max-w-6xl gap-4 lg:grid-cols-3">
+        {PRODUCTS.map(({ key, Icon, live }, i) => (
+          <Reveal key={key} delay={i * 110}>
+            <div
+              className={cn(
+                "landing-card relative flex h-full flex-col overflow-hidden rounded-3xl border p-7 sm:p-8",
+                live ? "border-[#3d3fe0]/50 bg-[#0b0b14]" : "border-[#1c1c1f] bg-[#0a0a0b]",
+              )}
+            >
+              <div className="flex items-center justify-between gap-3">
+                <span className="flex items-center gap-3">
+                  <span className="grid size-11 place-items-center rounded-2xl bg-white/[0.05] text-[#f0b44c]">
+                    <Icon className="size-5" />
+                  </span>
+                  <span className="text-2xl font-medium tracking-tight">
+                    {t(`landing.product.${key}.name` as MessageKey)}
+                  </span>
+                </span>
+                {live ? (
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-[#4ade80]/10 px-2.5 py-1 text-xs font-medium text-[#4ade80]">
+                    <span className="size-1.5 animate-pulse rounded-full bg-[#4ade80]" />
+                    {t("landing.live")}
+                  </span>
+                ) : (
+                  <span className="rounded-full border border-white/10 px-2.5 py-1 text-xs text-[#9a9aa2]">
+                    {t("landing.soon")}
+                  </span>
+                )}
+              </div>
+              <h3 className="mt-7 text-lg leading-snug font-medium">
+                {t(`landing.product.${key}.title` as MessageKey)}
+              </h3>
+              <p className="mt-1 text-[15px] text-[#9a9aa2]">{t(`landing.product.${key}.body` as MessageKey)}</p>
+              <ul className="mt-6 space-y-3 border-t border-white/5 pt-6">
+                {[1, 2, 3, 4].map((n) => (
+                  <li key={n} className="flex gap-3 text-[15px] leading-snug text-[#d4d4d8]">
+                    <Check className={cn("mt-0.5 size-4 shrink-0", live ? "text-[#4ade80]" : "text-[#5f5f68]")} />
+                    {t(`landing.product.${key}.point${n}` as MessageKey)}
+                  </li>
+                ))}
+              </ul>
             </div>
           </Reveal>
         ))}
