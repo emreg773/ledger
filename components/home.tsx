@@ -2,7 +2,7 @@
 
 import { useState, type ComponentProps } from "react";
 import { useQuery } from "convex/react";
-import { Camera, FileText, ListChecks, MessageSquare, type LucideIcon } from "lucide-react";
+import { Camera, ChevronDown, FileText, ListChecks, MessageSquare, type LucideIcon } from "lucide-react";
 import { api } from "@/convex/_generated/api";
 import type { Doc } from "@/convex/_generated/dataModel";
 import type { NotificationView } from "@/convex/notifications";
@@ -11,6 +11,7 @@ import { DeadlineCalendar } from "@/components/deadline-calendar";
 import { DocumentCard } from "@/components/document-card";
 import { NotificationList } from "@/components/notification-center";
 import { NotificationBanner } from "@/components/notifications";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { localeFor } from "@/lib/format";
 import { docTypeName, useI18n, type MessageKey } from "@/lib/i18n";
@@ -136,17 +137,25 @@ export function Home({
                 groupFiles(documents).map((g) => {
                   const caseView = g.caseId ? casesById.get(g.caseId) : undefined;
                   const cards = g.docs.map((d) => <DocumentCard key={d._id} doc={d} caseView={caseView} />);
-                  // A case with several letters: one header, its letters newest first.
+                  // A case with several letters: a closed card with the case name and
+                  // the date of its newest letter; open it to see the letters, newest first.
                   return caseView && g.docs.length > 1 ? (
-                    <section key={g.key} className="space-y-3 border-l-2 border-foreground/70 pl-3">
-                      <div className="flex items-baseline justify-between gap-2">
-                        <h3 className="font-display text-xl leading-tight">{docTypeName(t, caseView.docType)}</h3>
-                        <span className="shrink-0 text-xs text-muted-foreground">
-                          {t("home.caseLetters", { count: g.docs.length })}
+                    <Collapsible key={g.key} className="rounded-xl border bg-card">
+                      <CollapsibleTrigger className="group flex w-full items-center gap-3 px-4 py-3 text-left">
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate font-display text-xl leading-tight">
+                            {docTypeName(t, caseView.docType)}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            {new Intl.DateTimeFormat(localeFor(language), { dateStyle: "medium" }).format(g.docs[0].receivedAt)}
+                            {" · "}
+                            {t("home.caseLetters", { count: g.docs.length })}
+                          </span>
                         </span>
-                      </div>
-                      {cards}
-                    </section>
+                        <ChevronDown className="size-5 shrink-0 transition-transform group-data-[panel-open]:rotate-180" />
+                      </CollapsibleTrigger>
+                      <CollapsibleContent className="space-y-3 px-3 pb-3">{cards}</CollapsibleContent>
+                    </Collapsible>
                   ) : (
                     cards
                   );
