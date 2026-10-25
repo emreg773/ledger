@@ -228,5 +228,6 @@
   "clock.banner": "演示日期：{date}",
   "telegram.connect": "连接 Telegram",
   "telegram.connected": "已连接 ✓ 可将信件发给机器人",
-  "telegram.disconnect": "断开 Telegram"
+  "telegram.disconnect": "断开 Telegram",
+  "home.caseLetters": "{count} 封信件"
 }

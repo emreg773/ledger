@@ -13,7 +13,7 @@ import { NotificationList } from "@/components/notification-center";
 import { NotificationBanner } from "@/components/notifications";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { localeFor } from "@/lib/format";
-import { useI18n, type MessageKey } from "@/lib/i18n";
+import { docTypeName, useI18n, type MessageKey } from "@/lib/i18n";
 import type { ActionView, CaseView } from "@/lib/contract";
 import type { usePush } from "@/lib/push";
 import { useToday } from "@/lib/use-today";
@@ -26,6 +26,22 @@ import { cn } from "@/lib/utils";
 // notifications) and the page scrolls.
 
 type Docs = (Doc<"documents"> & { url: string | null })[];
+
+/**
+ * Files grouped by case: letters of one case together, newest first; letters
+ * without a case on their own. Groups are ordered by their newest letter.
+ */
+function groupFiles(documents: Docs) {
+  const groups = new Map<string, { key: string; caseId?: Docs[number]["caseId"]; docs: Docs }>();
+  for (const d of documents) {
+    const key = d.caseId ?? d._id;
+    const g = groups.get(key) ?? { key, caseId: d.caseId, docs: [] };
+    g.docs.push(d);
+    groups.set(key, g);
+  }
+  for (const g of groups.values()) g.docs.sort((a, b) => b.receivedAt - a.receivedAt);
+  return [...groups.values()].sort((a, b) => b.docs[0].receivedAt - a.docs[0].receivedAt);
+}
 
 /** Opens the file picker in the composer (components/chat.tsx listens). */
 export function startUpload() {
@@ -117,11 +133,24 @@ export function Home({
               (documents.length === 0 ? (
                 <p className="text-sm text-muted-foreground">{t("home.filesEmpty")}</p>
               ) : (
-                [...documents]
-                  .sort((a, b) => b.receivedAt - a.receivedAt)
-                  .map((d) => (
-                    <DocumentCard key={d._id} doc={d} caseView={d.caseId ? casesById.get(d.caseId) : undefined} />
-                  ))
+                groupFiles(documents).map((g) => {
+                  const caseView = g.caseId ? casesById.get(g.caseId) : undefined;
+                  const cards = g.docs.map((d) => <DocumentCard key={d._id} doc={d} caseView={caseView} />);
+                  // A case with several letters: one header, its letters newest first.
+                  return caseView && g.docs.length > 1 ? (
+                    <section key={g.key} className="space-y-3 border-l-2 border-foreground/70 pl-3">
+                      <div className="flex items-baseline justify-between gap-2">
+                        <h3 className="font-display text-xl leading-tight">{docTypeName(t, caseView.docType)}</h3>
+                        <span className="shrink-0 text-xs text-muted-foreground">
+                          {t("home.caseLetters", { count: g.docs.length })}
+                        </span>
+                      </div>
+                      {cards}
+                    </section>
+                  ) : (
+                    cards
+                  );
+                })
               ))}
             {sheet === "tasks" &&
               (openTasks.length === 0 ? (

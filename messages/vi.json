@@ -228,5 +228,6 @@
   "clock.banner": "Ngày demo: {date}",
   "telegram.connect": "Kết nối Telegram",
   "telegram.connected": "Đã kết nối ✓ Gửi thư cho bot",
-  "telegram.disconnect": "Ngắt kết nối Telegram"
+  "telegram.disconnect": "Ngắt kết nối Telegram",
+  "home.caseLetters": "{count} thư"
 }
