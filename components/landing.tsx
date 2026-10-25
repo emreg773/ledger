@@ -17,7 +17,6 @@ import {
   Plus,
   ScanText,
   ShieldCheck,
-  Sparkles,
   Store,
   Workflow,
 } from "lucide-react";
@@ -285,8 +284,7 @@ function Hero({
       </header>
 
       <div className="relative z-10 mx-auto flex w-full max-w-4xl flex-1 flex-col items-center justify-center px-4 pt-16 pb-[16vh] text-center sm:px-6">
-        <p className="landing-rise mb-6 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3.5 py-1.5 text-xs text-[#c4c4cc] sm:text-sm">
-          <Sparkles className="size-3.5 text-[#f0b44c]" />
+        <p className="landing-rise mb-6 rounded-full border border-white/10 bg-white/[0.04] px-3.5 py-1.5 text-xs text-[#c4c4cc] sm:text-sm">
           {t("landing.eyebrow")}
         </p>
         <h1
