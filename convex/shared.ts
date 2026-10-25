@@ -9,6 +9,7 @@ export const LANGUAGES = [
   { code: "zh", label: "中文", englishName: "Simplified Chinese" },
   { code: "vi", label: "Tiếng Việt", englishName: "Vietnamese" },
   { code: "ko", label: "한국어", englishName: "Korean" },
+  { code: "tr", label: "Türkçe", englishName: "Turkish" },
 ] as const;
 
 export function languageName(code: string): string {

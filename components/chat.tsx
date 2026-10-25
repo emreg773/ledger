@@ -79,14 +79,8 @@ export function Chat({ owner }: { owner: Doc<"owners"> }) {
     };
     if (caseId) open(caseId);
     const onOpen = (e: Event) => open((e as CustomEvent<string>).detail);
-    // An email notification, or an email push (/?tab=email): back to the home screen.
-    const onHome = () => setView("home");
     window.addEventListener("ledger:open-case", onOpen);
-    window.addEventListener("ledger:open-home", onHome);
-    return () => {
-      window.removeEventListener("ledger:open-case", onOpen);
-      window.removeEventListener("ledger:open-home", onHome);
-    };
+    return () => window.removeEventListener("ledger:open-case", onOpen);
   }, []);
 
   const bottomRef = useRef<HTMLDivElement>(null);

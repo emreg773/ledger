@@ -2,15 +2,14 @@ import { v } from "convex/values";
 import { internalAction, internalMutation, type MutationCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 
-// Shared Google OAuth plumbing for the read-only integrations (Google Calendar,
-// Gmail). Separate from sign-in, which Convex Auth handles; same web client,
+// Google OAuth plumbing for the read-only Google Calendar connection. Separate from sign-in, which Convex Auth handles; same web client,
 // so AUTH_GOOGLE_ID / AUTH_GOOGLE_SECRET from the Convex env.
 
 const TOKEN_URL = "https://oauth2.googleapis.com/token";
 const STATE_TTL_MS = 10 * 60_000;
 
-export type Purpose = "calendar" | "gmail";
-export const purpose = v.union(v.literal("calendar"), v.literal("gmail"));
+export type Purpose = "calendar";
+export const purpose = v.literal("calendar");
 
 export const redirectUri = (p: Purpose) => `${process.env.CONVEX_SITE_URL}/${p}/callback`;
 

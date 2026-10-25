@@ -6,6 +6,7 @@ import es from "@/messages/es.json";
 import zh from "@/messages/zh.json";
 import vi from "@/messages/vi.json";
 import ko from "@/messages/ko.json";
+import tr from "@/messages/tr.json";
 
 // UI strings, driven by owners.preferredLanguage. English is the fallback for
 // missing keys and unknown languages. Keys are typed from en.json.
@@ -13,7 +14,7 @@ import ko from "@/messages/ko.json";
 export type MessageKey = keyof typeof en;
 type Messages = Partial<Record<MessageKey, string>>;
 
-const MESSAGES: Record<string, Messages> = { en, es, zh, vi, ko };
+const MESSAGES: Record<string, Messages> = { en, es, zh, vi, ko, tr };
 
 export type T = (key: MessageKey, vars?: Record<string, string | number>) => string;
 
