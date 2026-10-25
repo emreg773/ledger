@@ -44,6 +44,24 @@ export default function PrivacyPage() {
         </li>
       </ul>
 
+      <h2>Google Calendar (optional)</h2>
+      <p>
+        If you choose &quot;Connect Google Calendar&quot;, Ledger asks Google for <strong>read-only</strong>{" "}
+        access to your calendars. It copies the title, date, time and link of the events on your primary
+        calendar from about a month ago to four months ahead, and shows them on Ledger&apos;s calendar next to
+        your letters&apos; deadlines. It refreshes them every hour. Ledger never creates, changes or deletes
+        anything in your Google Calendar, and doesn&apos;t send your events to Anthropic.
+      </p>
+      <p>
+        &quot;Disconnect&quot; on the calendar, or deleting your account, revokes Ledger&apos;s access and
+        deletes the copied events. You can also remove access at any time from your Google Account&apos;s
+        security settings. Ledger&apos;s use of information received from Google APIs follows the{" "}
+        <a href="https://developers.google.com/terms/api-services-user-data-policy">
+          Google API Services User Data Policy
+        </a>
+        , including the Limited Use requirements.
+      </p>
+
       <h2>How we use it</h2>
       <p>
         Only to run Ledger for you: to read your documents, explain them, check them against your sandbox

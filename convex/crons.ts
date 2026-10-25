@@ -6,4 +6,7 @@ const crons = cronJobs();
 // Uploads that were refused (type, size, rate limit) or never ingested.
 crons.interval("delete unused uploads", { hours: 1 }, internal.admin.cleanupOrphanUploads, {});
 
+// Connected Google Calendars, so new and changed events show up within the hour.
+crons.interval("sync google calendars", { hours: 1 }, internal.googleCalendar.syncAll, {});
+
 export default crons;

@@ -19,6 +19,7 @@ import type * as crons from "../crons.js";
 import type * as documents from "../documents.js";
 import type * as events from "../events.js";
 import type * as extraction from "../extraction.js";
+import type * as googleCalendar from "../googleCalendar.js";
 import type * as http from "../http.js";
 import type * as intake from "../intake.js";
 import type * as limits from "../limits.js";
@@ -55,6 +56,7 @@ declare const fullApi: ApiFromModules<{
   documents: typeof documents;
   events: typeof events;
   extraction: typeof extraction;
+  googleCalendar: typeof googleCalendar;
   http: typeof http;
   intake: typeof intake;
   limits: typeof limits;

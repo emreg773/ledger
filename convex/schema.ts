@@ -131,6 +131,37 @@ export default defineSchema({
     .index("by_owner", ["ownerId"])
     .index("by_endpoint", ["endpoint"]),
 
+  // Google Calendar, read-only (googleCalendar.ts). One connection per owner;
+  // the refresh token never leaves the backend.
+  calendarConnections: defineTable({
+    ownerId: v.id("owners"),
+    refreshToken: v.string(),
+    accessToken: v.optional(v.string()),
+    accessTokenExpiresAt: v.optional(v.number()),
+    calendarName: v.optional(v.string()), // the primary calendar's name, usually the email
+    connectedAt: v.number(),
+    lastSyncedAt: v.optional(v.number()),
+    error: v.optional(v.string()), // e.g. "revoked": the owner removed access in Google
+  }).index("by_owner", ["ownerId"]),
+
+  // The OAuth "state" for a connect in progress; single use, 10 minutes.
+  calendarOAuthStates: defineTable({
+    ownerId: v.id("owners"),
+    state: v.string(),
+    createdAt: v.number(),
+  }).index("by_state", ["state"]),
+
+  // Events copied from the owner's primary Google Calendar, about a month back
+  // and four ahead. Replaced on every sync.
+  calendarEvents: defineTable({
+    ownerId: v.id("owners"),
+    googleId: v.string(),
+    title: v.string(),
+    date: v.string(), // ISO date the event starts, in the calendar's time zone
+    time: v.optional(v.string()), // "HH:MM"; absent for all-day events
+    htmlLink: v.optional(v.string()),
+  }).index("by_owner_and_date", ["ownerId", "date"]),
+
   // Every notification Ledger sends, kept for the in-app notification center,
   // whether or not the owner has a device subscribed to push.
   notifications: defineTable({

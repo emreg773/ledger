@@ -269,3 +269,13 @@ export const fakePush = (state: PushState): ReturnType<typeof usePush> => ({
   enable: async () => true,
   disable: async () => {},
 });
+
+// Google Calendar preview: a connected calendar with a few events this month.
+export const mockCalendar = {
+  status: { connected: true as const, calendarName: "maria@taquerialaesquina.com", lastSyncedAt: NOW },
+  events: [
+    { _id: id<"calendarEvents">("mock_event_1"), title: "Entrega de Restaurant Depot", date: "2026-10-27", time: "07:30", htmlLink: "https://calendar.google.com" },
+    { _id: id<"calendarEvents">("mock_event_2"), title: "Reunión con contador", date: "2026-10-29", time: "15:00", htmlLink: "https://calendar.google.com" },
+    { _id: id<"calendarEvents">("mock_event_3"), title: "Día de Muertos: cerrado", date: "2026-11-02", htmlLink: "https://calendar.google.com" },
+  ],
+};

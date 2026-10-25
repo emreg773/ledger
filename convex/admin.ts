@@ -1,4 +1,4 @@
-import { components } from "./_generated/api";
+import { components, internal } from "./_generated/api";
 import { internalMutation, type MutationCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import { deleteMockBank } from "./nessie";
@@ -56,9 +56,15 @@ export async function deleteOwnerData(ctx: MutationCtx, owner: Doc<"owners">) {
     .withIndex("by_owner", (q) => q.eq("ownerId", ownerId))
     .collect();
   for (const n of notifications) await ctx.db.delete(n._id);
+  // Google Calendar events are a copy; the connection stays, so the next sync refills them.
+  const calendarEvents = await ctx.db
+    .query("calendarEvents")
+    .withIndex("by_owner_and_date", (q) => q.eq("ownerId", ownerId))
+    .collect();
+  for (const e of calendarEvents) await ctx.db.delete(e._id);
 }
 
-/** Everything above, plus the push subscriptions, the mock bank and the owner row. */
+/** Everything above, plus the push subscriptions, the Google Calendar connection, the mock bank and the owner row. */
 export async function deleteOwner(ctx: MutationCtx, owner: Doc<"owners">) {
   await deleteOwnerData(ctx, owner);
   const subscriptions = await ctx.db
@@ -66,6 +72,15 @@ export async function deleteOwner(ctx: MutationCtx, owner: Doc<"owners">) {
     .withIndex("by_owner", (q) => q.eq("ownerId", owner._id))
     .collect();
   for (const s of subscriptions) await ctx.db.delete(s._id);
+  const calendar = await ctx.db
+    .query("calendarConnections")
+    .withIndex("by_owner", (q) => q.eq("ownerId", owner._id))
+    .unique();
+  if (calendar) {
+    // Revoke Google's grant too, not just our copy of the token.
+    await ctx.scheduler.runAfter(0, internal.googleCalendar.revoke, { refreshToken: calendar.refreshToken });
+    await ctx.db.delete(calendar._id);
+  }
   await deleteMockBank(ctx, owner._id);
   await ctx.db.delete(owner._id);
 }
