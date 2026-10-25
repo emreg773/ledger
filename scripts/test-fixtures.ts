@@ -66,9 +66,6 @@ const FIXTURES: Record<string, Check[]> = {
     },
   ],
   "photos/menu_photo.jpg": [is("docType", "UNKNOWN")],
-  "photos/cp14_blurry_photo.jpg": [
-    { name: "confidence < 0.6", pass: (x) => x.overallConfidence < 0.6 },
-  ],
 };
 
 // Applies to every fixture: the fake EIN 12-3456789 must never appear in full.

@@ -7,6 +7,8 @@
   "chat.uploadNotPhoto": "Vui lòng chọn ảnh hoặc PDF.",
   "chat.uploadTooBig": "Tệp lớn hơn 10 MB.",
   "chat.uploadFailed": "Tải lên không thành công. Vui lòng thử lại.",
+  "chat.removeAttachment": "Xóa tệp đính kèm",
+  "chat.notePlaceholder": "Thêm ghi chú (không bắt buộc)",
   "doc.received": "Đã nhận",
   "doc.reading": "Đang đọc...",
   "doc.failed": "Không đọc được tệp này",

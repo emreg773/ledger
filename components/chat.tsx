@@ -5,7 +5,7 @@ import { useMutation, useQuery } from "convex/react";
 import { useUIMessages } from "@convex-dev/agent/react";
 import imageCompression from "browser-image-compression";
 import ReactMarkdown from "react-markdown";
-import { ArrowLeft, Camera, Loader2, SendHorizontal } from "lucide-react";
+import { ArrowLeft, Camera, FileText, Loader2, SendHorizontal, X } from "lucide-react";
 import { api } from "@/convex/_generated/api";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
 import { DOCUMENT_MARKER, SYSTEM_NOTE_PREFIX } from "@/convex/shared";
@@ -240,6 +240,15 @@ export function Welcome({ owner }: { owner: Doc<"owners"> }) {
   );
 }
 
+/** A picked file waiting for Send. It uploads to storage while the owner types. */
+type Attachment = {
+  key: number;
+  name: string;
+  previewUrl: string | null; // object URL for photos; PDFs show an icon
+  ready: boolean;
+  upload: Promise<{ storageId: Id<"_storage">; mimeType: string }>;
+};
+
 function Composer({ onSent }: { onSent: () => void }) {
   const { t } = useI18n();
   const generateUploadUrl = useMutation(api.documents.generateUploadUrl);
@@ -247,7 +256,8 @@ function Composer({ onSent }: { onSent: () => void }) {
   const sendMessage = useMutation(api.chat.sendMessage);
   const fileInput = useRef<HTMLInputElement>(null);
   const [text, setText] = useState("");
-  const [uploading, setUploading] = useState(false);
+  const [attachment, setAttachment] = useState<Attachment | null>(null);
+  const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // The home screen's "Upload a letter" tile opens this file picker.
@@ -257,49 +267,99 @@ function Composer({ onSent }: { onSent: () => void }) {
     return () => window.removeEventListener("ledger:upload", pick);
   }, []);
 
-  async function upload(original: File) {
+  // Free the photo preview when the attachment is removed, sent, or replaced.
+  useEffect(() => {
+    const url = attachment?.previewUrl;
+    return () => {
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [attachment?.previewUrl]);
+
+  async function prepare(original: File) {
+    const isPdf = original.type === "application/pdf";
+    // Photos: shrink to ~1600 px and convert to JPEG (also handles HEIC-ish
+    // camera formats the browser can decode). PDFs upload unchanged.
+    const file = isPdf
+      ? original
+      : await imageCompression(original, {
+          maxWidthOrHeight: 1600,
+          maxSizeMB: 2,
+          fileType: "image/jpeg",
+          useWebWorker: true,
+        });
+    if (file.size > MAX_BYTES) throw new Error("too_big");
+    return file;
+  }
+
+  async function store(file: File) {
+    const url = await generateUploadUrl({});
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": file.type },
+      body: file,
+    });
+    if (!res.ok) throw new Error(`Upload failed (${res.status})`);
+    const { storageId } = (await res.json()) as { storageId: Id<"_storage"> };
+    return { storageId, mimeType: file.type };
+  }
+
+  // Picking a file only attaches it; nothing reaches the agent until Send.
+  // A removed attachment's upload is left for the hourly unused-upload cleanup.
+  async function attach(original: File) {
+    if (fileInput.current) fileInput.current.value = "";
     setError(null);
     const isPdf = original.type === "application/pdf";
     if (!isPdf && !original.type.startsWith("image/")) {
       setError(t("chat.uploadNotPhoto"));
       return;
     }
-    setUploading(true);
-    try {
-      // Photos: shrink to ~1600 px and convert to JPEG (also handles HEIC-ish
-      // camera formats the browser can decode). PDFs upload unchanged.
-      const file = isPdf
-        ? original
-        : await imageCompression(original, {
-            maxWidthOrHeight: 1600,
-            maxSizeMB: 2,
-            fileType: "image/jpeg",
-            useWebWorker: true,
-          });
-      if (file.size > MAX_BYTES) {
-        setError(t("chat.uploadTooBig"));
-        return;
-      }
-      const url = await generateUploadUrl({});
-      const res = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": file.type },
-        body: file,
-      });
-      if (!res.ok) throw new Error(`Upload failed (${res.status})`);
-      const { storageId } = (await res.json()) as { storageId: Id<"_storage"> };
-      await ingestWebUpload({ storageId, mimeType: file.type });
-      onSent();
-    } catch (e) {
-      setError(errorMessage(t, e, "chat.uploadFailed"));
-    } finally {
-      setUploading(false);
-      if (fileInput.current) fileInput.current.value = "";
-    }
+    const key = Date.now();
+    const prepared = prepare(original);
+    const upload = prepared.then(store);
+    setAttachment({
+      key,
+      name: original.name,
+      previewUrl: isPdf ? null : URL.createObjectURL(original),
+      ready: false,
+      upload,
+    });
+    const isCurrent = (a: Attachment | null) => a?.key === key;
+    upload.then(
+      () => setAttachment((a) => (a && isCurrent(a) ? { ...a, ready: true } : a)),
+      (e: unknown) => {
+        setAttachment((a) => (isCurrent(a) ? null : a));
+        setError(
+          e instanceof Error && e.message === "too_big"
+            ? t("chat.uploadTooBig")
+            : errorMessage(t, e, "chat.uploadFailed"),
+        );
+      },
+    );
   }
 
   async function send() {
     const trimmed = text.trim();
+    if (sending) return;
+    if (attachment) {
+      // The typed text goes with the document as the owner's note.
+      setError(null);
+      setSending(true);
+      try {
+        const { storageId, mimeType } = await attachment.upload;
+        await ingestWebUpload({ storageId, mimeType, hint: trimmed || undefined });
+        setAttachment(null);
+        setText("");
+        onSent();
+      } catch (e) {
+        // A failed upload already cleared itself and set the error in attach().
+        if (!(e instanceof Error && e.message === "too_big")) {
+          setError(errorMessage(t, e, "chat.uploadFailed"));
+        }
+      } finally {
+        setSending(false);
+      }
+      return;
+    }
     if (!trimmed) return;
     setError(null);
     setText("");
@@ -317,12 +377,48 @@ function Composer({ onSent }: { onSent: () => void }) {
      <div className="mx-auto w-full max-w-3xl">
       {error && <p className="px-1 pb-2 text-xs text-destructive">{error}</p>}
       <form
-        className="ledger-card flex items-end gap-1.5 p-1.5"
+        className="ledger-card p-1.5"
         onSubmit={(e) => {
           e.preventDefault();
           void send();
         }}
       >
+       {attachment && (
+        <div className="px-1 pt-1 pb-1.5">
+          <div className="group relative inline-flex">
+            {attachment.previewUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element -- local object URL
+              <img
+                src={attachment.previewUrl}
+                alt={attachment.name}
+                className="size-16 rounded-lg border object-cover"
+              />
+            ) : (
+              <div className="flex h-16 max-w-48 items-center gap-2 rounded-lg border bg-muted px-3 text-xs">
+                <FileText className="size-5 shrink-0" />
+                <span className="truncate">{attachment.name}</span>
+              </div>
+            )}
+            {(!attachment.ready || sending) && (
+              <div className="absolute inset-0 flex items-center justify-center rounded-lg bg-background/60">
+                <Loader2 className="size-5 animate-spin" />
+              </div>
+            )}
+            {!sending && (
+              // Shows on hover or keyboard focus; always shown on touch screens.
+              <button
+                type="button"
+                aria-label={t("chat.removeAttachment")}
+                onClick={() => setAttachment(null)}
+                className="absolute -top-2 -right-2 flex size-6 items-center justify-center rounded-full border bg-background text-foreground shadow-sm opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-100"
+              >
+                <X className="size-3.5" />
+              </button>
+            )}
+          </div>
+        </div>
+       )}
+       <div className="flex items-end gap-1.5">
         <input
           ref={fileInput}
           type="file"
@@ -330,7 +426,7 @@ function Composer({ onSent }: { onSent: () => void }) {
           className="hidden"
           onChange={(e) => {
             const f = e.target.files?.[0];
-            if (f) void upload(f);
+            if (f) void attach(f);
           }}
         />
         <Button
@@ -338,10 +434,10 @@ function Composer({ onSent }: { onSent: () => void }) {
           variant="ghost"
           size="icon-lg"
           aria-label={t("chat.upload")}
-          disabled={uploading}
+          disabled={sending}
           onClick={() => fileInput.current?.click()}
         >
-          {uploading ? <Loader2 className="animate-spin" /> : <Camera />}
+          <Camera />
         </Button>
         <Textarea
           value={text}
@@ -353,12 +449,18 @@ function Composer({ onSent }: { onSent: () => void }) {
             }
           }}
           rows={1}
-          placeholder={t("chat.placeholder")}
+          placeholder={t(attachment ? "chat.notePlaceholder" : "chat.placeholder")}
           className="max-h-32 min-h-9 flex-1 resize-none border-0 bg-transparent text-base shadow-none focus-visible:ring-0 sm:text-sm dark:bg-transparent"
         />
-        <Button type="submit" size="icon-lg" aria-label={t("chat.send")} disabled={!text.trim()}>
-          <SendHorizontal />
+        <Button
+          type="submit"
+          size="icon-lg"
+          aria-label={t("chat.send")}
+          disabled={sending || (!attachment && !text.trim())}
+        >
+          {sending ? <Loader2 className="animate-spin" /> : <SendHorizontal />}
         </Button>
+       </div>
       </form>
       <p className="px-1 pt-1.5 text-[11px] leading-snug text-muted-foreground">
         {t("privacy.notice")}

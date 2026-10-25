@@ -113,10 +113,11 @@ export const ingestWebUpload = mutation({
     storageId: v.id("_storage"),
     mimeType: v.string(),
     ownerId: v.optional(v.id("owners")),
+    hint: v.optional(v.string()), // the owner's note typed with the attachment
   },
-  handler: async (ctx, { storageId, mimeType }) => {
+  handler: async (ctx, { storageId, mimeType, hint }) => {
     const owner = await requireOwner(ctx);
     await checkOwnerLimit(ctx, owner._id, "upload");
-    return await ingest(ctx, { ownerId: owner._id, storageId, mimeType, source: "web_upload" });
+    return await ingest(ctx, { ownerId: owner._id, storageId, mimeType, source: "web_upload", hint });
   },
 });
