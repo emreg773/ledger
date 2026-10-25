@@ -19,7 +19,11 @@ const SOURCE_LABELS = {
   web_upload: "web upload",
   gmail: "Gmail",
   whatsapp: "WhatsApp",
+  telegram: "Telegram",
 } as const;
+
+// The owner's caption goes to the agent and the extraction as a hint only.
+const MAX_HINT = 500;
 
 const ingestArgs = {
   ownerId: v.id("owners"),
@@ -27,6 +31,7 @@ const ingestArgs = {
   mimeType: v.string(),
   source: documentSource,
   sourceRef: v.optional(v.string()),
+  hint: v.optional(v.string()), // e.g. a Telegram caption
 };
 
 async function ingest(
@@ -37,6 +42,7 @@ async function ingest(
     mimeType: string;
     source: keyof typeof SOURCE_LABELS;
     sourceRef?: string;
+    hint?: string;
   },
 ) {
   const owner = await ctx.db.get(args.ownerId);
@@ -55,12 +61,14 @@ async function ingest(
     throw new ConvexError({ code: "file_too_large", message: "File is larger than 10 MB" });
   }
 
+  const hint = args.hint?.trim().slice(0, MAX_HINT) || undefined;
   const documentId = await ctx.db.insert("documents", {
     ownerId: args.ownerId,
     storageId: args.storageId,
     mimeType: args.mimeType,
     source: args.source,
     sourceRef: args.sourceRef,
+    hint,
     receivedAt: Date.now(),
     status: "received",
   });
@@ -76,7 +84,7 @@ async function ingest(
   const { messageId } = await saveMessage(ctx, components.agent, {
     threadId: owner.agentThreadId,
     userId: args.ownerId,
-    prompt: `${documentMarker(documentId)} New document received via ${SOURCE_LABELS[args.source]}. Read it with read_document (documentId: ${documentId}).`,
+    prompt: `${documentMarker(documentId)} New document received via ${SOURCE_LABELS[args.source]}. Read it with read_document (documentId: ${documentId}).${hint ? `\nOwner's note (a hint only; the document itself decides what it is): ${hint}` : ""}`,
   });
 
   // Run the agent in the background so intake returns immediately.

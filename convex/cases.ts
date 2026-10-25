@@ -48,3 +48,20 @@ export const setPlaybook = internalMutation({
     await ctx.db.patch(caseId, { playbookDocType: docType });
   },
 });
+
+export type TimelineItem = {
+  at: number; // ms, for ordering
+  date: string; // ISO date shown to the owner
+  kind: "document" | "bank_payment" | "action" | "event";
+  title: string; // English; the UI translates by kind
+  detail?: string;
+  status?: string;
+  documentId?: string;
+  actionId?: string;
+};
+
+/** The case's documents, bank matches, actions and key events, oldest first. STUB. */
+export const timeline = query({
+  args: { caseId: v.id("cases") },
+  handler: async (): Promise<TimelineItem[]> => [],
+});

@@ -15,6 +15,10 @@ export const pushKind = v.union(
   v.literal("action_done"),
   v.literal("document_failed"),
   v.literal("test"),
+  // Step 4. Their text comes from the caller (queuePush's `text` option).
+  v.literal("deadline_reminder"), // deadlines.ts
+  v.literal("weekly_roundup"), // digest.ts (Person B)
+  v.literal("nudge"), // digest.ts (Person B)
 );
 
 /** Upserts by endpoint. A browser that was another owner's (a shared device) moves to this one. */
@@ -128,8 +132,8 @@ export const deleteSubscription = internalMutation({
 // EIN, full account number or the letter's text: pushes cross Google's and
 // Apple's servers and show on lock screens.
 
-type PushKind = Infer<typeof pushKind>;
-type Lang = "en" | "es" | "tr";
+export type PushKind = Infer<typeof pushKind>;
+export type Lang = "en" | "es" | "tr";
 
 const MONTHS: Record<Lang, string[]> = {
   en: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
@@ -220,6 +224,13 @@ function message(
       const body = { en: "Notifications are on.", es: "Las notificaciones están activadas.", tr: "Bildirimler açık." }[lang];
       return { body, summary: "Test notification" };
     }
+    case "deadline_reminder":
+    case "weekly_roundup":
+    case "nudge": {
+      // Callers pass their own text; this is only the fallback.
+      const body = { en: "You have an update in Ledger.", es: "Tiene una novedad en Ledger.", tr: "Ledger'da bir güncellemeniz var." }[lang];
+      return { body, summary: kind };
+    }
   }
 }
 
@@ -249,23 +260,49 @@ function heading(
       return action?.type === "pay_bill"
         ? pick("done", { en: "Payment made", es: "Pago realizado", tr: "Ödeme yapıldı" })
         : pick("done", { en: "Done", es: "Listo", tr: "Tamamlandı" });
+    case "deadline_reminder":
+      return pick("reminder", { en: "Reminder", es: "Recordatorio", tr: "Hatırlatma" });
+    case "weekly_roundup":
+      return pick("reminder", { en: "Your week", es: "Su semana", tr: "Haftanız" });
+    case "nudge":
+      return pick("reminder", { en: "Don't forget", es: "No lo olvide", tr: "Unutmayın" });
   }
 }
 
-async function queuePush(
+export type QueuePushOptions = {
+  /** "history_only": record it in the notification center without a push (e.g. a Telegram message). */
+  deliver?: "push" | "history_only";
+  /** Text in the owner's language for kinds that build their own (reminders, roundups, nudges). */
+  text?: { title?: string; body: string; summary: string };
+  /** Tap target; defaults to the case, or the home screen. */
+  url?: string;
+  /** Replaces an older push with the same tag; defaults to the case. */
+  tag?: string;
+};
+
+export function ownerLang(owner: Doc<"owners">): Lang {
+  return owner.preferredLanguage === "es" || owner.preferredLanguage === "tr" ? owner.preferredLanguage : "en";
+}
+
+/** Records a notification for the notification center and pushes it to the owner's devices. */
+export async function queuePush(
   ctx: MutationCtx,
   owner: Doc<"owners">,
   kind: PushKind,
   c: Doc<"cases"> | null,
   action: Doc<"actions"> | null,
+  opts: QueuePushOptions = {},
 ) {
-  const lang: Lang = owner.preferredLanguage === "es" || owner.preferredLanguage === "tr" ? owner.preferredLanguage : "en";
-  const { body, summary } = message(kind, lang, c, action);
+  const lang = ownerLang(owner);
+  const { body, summary } = opts.text ?? message(kind, lang, c, action);
 
   // Keep every notification for the notification center, with or without a
   // device. Test pushes aren't worth keeping.
   if (kind !== "test") {
-    const { category, title, titleEn } = heading(kind, lang, c, action);
+    const head = heading(kind, lang, c, action);
+    const category = head.category;
+    const title = opts.text?.title ?? head.title;
+    const titleEn = head.titleEn;
     await ctx.db.insert("notifications", {
       ownerId: owner._id,
       kind,
@@ -279,6 +316,7 @@ async function queuePush(
     });
   }
 
+  if (opts.deliver === "history_only") return;
   const hasDevice = await ctx.db
     .query("pushSubscriptions")
     .withIndex("by_owner", (q) => q.eq("ownerId", owner._id))
@@ -290,8 +328,8 @@ async function queuePush(
     payload: {
       title: "Ledger",
       body,
-      url: c ? `/?case=${c._id}` : "/",
-      tag: c ? `case-${c._id}` : `ledger-${kind}`,
+      url: opts.url ?? (c ? `/?case=${c._id}` : "/"),
+      tag: opts.tag ?? (c ? `case-${c._id}` : `ledger-${kind}`),
     },
     summary,
   });

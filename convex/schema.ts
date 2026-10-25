@@ -9,6 +9,7 @@ export const documentSource = v.union(
   v.literal("web_upload"),
   v.literal("gmail"),
   v.literal("whatsapp"),
+  v.literal("telegram"), // Step 4
 );
 
 export const documentStatus = v.union(
@@ -70,12 +71,14 @@ export const emailCategory = v.union(
 
 // Notification center categories. needs_action: the owner has a decision to
 // make. alert: a suspected scam or something that failed. letter: a letter was
-// read. done: a payment or task finished.
+// read. done: a payment or task finished. reminder (Step 4): a deadline
+// reminder, the weekly roundup or a nudge.
 export const notificationCategory = v.union(
   v.literal("needs_action"),
   v.literal("alert"),
   v.literal("letter"),
   v.literal("done"),
+  v.literal("reminder"),
 );
 
 export const verificationVerdict = v.union(
@@ -126,6 +129,10 @@ export default defineSchema({
     accountLast4: v.optional(v.string()),
     // Which Google Calendar events the home calendar shows; unset means "business".
     calendarFilter: v.optional(v.union(v.literal("business"), v.literal("all"))),
+    // Step 4: the demo clock (clock.ts). Every time-based check uses now + this.
+    clockOffsetMs: v.optional(v.number()),
+    // Step 4: the linked Telegram chat (telegram.ts)
+    telegramChatId: v.optional(v.string()),
   })
     .index("by_userId", ["userId"])
     .index("by_email", ["email"])
@@ -260,6 +267,8 @@ export default defineSchema({
     error: v.optional(v.string()),
     // Set when the extraction opens (or updates) a case, so the UI can link them.
     caseId: v.optional(v.id("cases")),
+    // Step 4: the owner's caption (e.g. on Telegram). A hint only; the document decides.
+    hint: v.optional(v.string()),
   })
     .index("by_owner", ["ownerId"])
     .index("by_owner_and_status", ["ownerId", "status"])
@@ -279,10 +288,29 @@ export default defineSchema({
     verification: v.optional(caseVerification),
     bankCheck: v.optional(caseBankCheck),
     playbookDocType: v.optional(v.string()),
+    // Step 4: case memory. Letters with the same key join one case (documents.ts caseKeyOf).
+    caseKey: v.optional(v.string()),
+    stage: v.optional(v.number()), // 1: first notice, 2: an escalation (CP504 after CP14)
   })
     .index("by_owner", ["ownerId"])
     .index("by_owner_and_status", ["ownerId", "status"])
-    .index("by_document", ["documentId"]),
+    .index("by_document", ["documentId"])
+    .index("by_owner_and_key", ["ownerId", "caseKey"]),
+
+  // Step 4: Telegram link codes (telegram.ts). The owner sends /start <code> to the bot.
+  telegramLinkCodes: defineTable({
+    ownerId: v.id("owners"),
+    code: v.string(),
+    createdAt: v.number(),
+  }).index("by_code", ["code"]),
+
+  // Step 4: reminders and nudges already sent, so none repeats. Key examples:
+  // "deadline|<itemKey>|<offset>", Person B's "nudge|...", "roundup|...".
+  sentLog: defineTable({
+    ownerId: v.id("owners"),
+    key: v.string(),
+    sentAt: v.number(),
+  }).index("by_owner_and_key", ["ownerId", "key"]),
 
   // Step 2: proposed and executed actions. This is how approvals work.
   actions: defineTable({
