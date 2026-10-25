@@ -1,0 +1,56 @@
+# Deploys production on every merge to main, or by hand from the Actions tab
+# ("Deploy production" → Run workflow).
+#
+# Same as `npx vercel deploy --prod` from a laptop: the code is uploaded and
+# Vercel builds it with the project's own env (CONVEX_DEPLOY_KEY,
+# NEXT_PUBLIC_VAPID_PUBLIC_KEY). The build runs `npx convex deploy` first
+# (vercel.json), so the Convex backend ships too.
+#
+# Needs three repository secrets (Settings → Secrets and variables → Actions):
+#   VERCEL_TOKEN       a token from the Vercel account that owns the project
+#   VERCEL_ORG_ID      "orgId" in .vercel/project.json
+#   VERCEL_PROJECT_ID  "projectId" in .vercel/project.json
+
+name: Deploy production
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# One deploy at a time; a newer merge waits for the running one.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+    steps:
+      - name: Check secrets
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          missing=""
+          [ -z "$VERCEL_TOKEN" ] && missing="$missing VERCEL_TOKEN"
+          [ -z "$VERCEL_ORG_ID" ] && missing="$missing VERCEL_ORG_ID"
+          [ -z "$VERCEL_PROJECT_ID" ] && missing="$missing VERCEL_PROJECT_ID"
+          if [ -n "$missing" ]; then
+            echo "::error::Missing repository secrets:$missing (Settings → Secrets and variables → Actions)"
+            exit 1
+          fi
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Deploy to Vercel (production)
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: npx --yes vercel@63.1.2 deploy --prod --yes --token="$VERCEL_TOKEN"
