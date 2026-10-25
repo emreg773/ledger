@@ -6,8 +6,8 @@ import { requireOwner, viewerOwner } from "./access";
 import { logEvent } from "./events";
 
 // The demo clock (Step 4 brief, Section 4). Each owner can skip time forward;
-// every time-based check (deadlines, reminders, countdowns, nudges, the weekly
-// roundup) uses nowMs() instead of Date.now().
+// every time-based check (deadlines, countdowns, Telegram nudges) uses nowMs()
+// instead of Date.now().
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -48,9 +48,8 @@ async function setOffset(ctx: MutationCtx, offsetMs: number) {
     type: "clock_changed",
     summary: offsetMs === 0 ? "Demo clock reset to today" : `Demo clock set to ${date}`,
   });
-  // Catch up: skipping ahead fires every reminder that would have fired in between.
-  await ctx.scheduler.runAfter(0, internal.deadlines.runDue, { ownerId: owner._id });
-  await ctx.scheduler.runAfter(0, internal.digest.runDue, { ownerId: owner._id });
+  // Catch up: a skip sends the day's nudge now (the highest level it jumped to).
+  await ctx.scheduler.runAfter(0, internal.nudges.runDue, { ownerId: owner._id });
   return null;
 }
 

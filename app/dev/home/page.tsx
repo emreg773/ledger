@@ -5,7 +5,6 @@ import { LANGUAGES } from "@/convex/shared";
 import { Home } from "@/components/home";
 import { I18nProvider } from "@/lib/i18n";
 import {
-  fakePush,
   mockActions,
   mockCalendar,
   mockCases,
@@ -55,9 +54,8 @@ export default function DevHomePreview() {
         owner={{ ...mockOwner, preferredLanguage: language }}
         cases={Object.values(mockCases)}
         documents={previewFiles}
-        hasConversation
-        push={fakePush("default")}
-        onOpenConversation={() => {}}
+        conversationCount={3}
+        onOpenConversations={() => {}}
         preview={{
           openTasks: [mockActions.payProposed, mockActions.taskProposed],
           notifications: mockNotifications,

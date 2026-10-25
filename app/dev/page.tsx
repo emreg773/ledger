@@ -12,7 +12,6 @@ import { NotificationBanner } from "@/components/notifications";
 import { I18nProvider } from "@/lib/i18n";
 import type { ActionView } from "@/lib/contract";
 import {
-  fakePush,
   mockActions,
   mockCaseFor,
   mockCases,
@@ -57,14 +56,10 @@ export default function DevPreview() {
         <Section title="Step 3: header menu, welcome, notification banner">
           <div className="relative flex items-center justify-between rounded-xl border px-3 py-2">
             <div className="font-semibold">{mockOwner.businessName}</div>
-            <AppMenu owner={{ ...mockOwner, preferredLanguage: language }} push={fakePush("on")} preview />
+            <AppMenu owner={{ ...mockOwner, preferredLanguage: language }} preview />
           </div>
           <Welcome owner={mockOwner} />
-          {(["default", "needs_install", "denied"] as const).map((state) => (
-            <Labeled key={state} label={state}>
-              <NotificationBanner push={fakePush(state)} />
-            </Labeled>
-          ))}
+          <NotificationBanner preview />
         </Section>
 
         <Section title="Demo flow: 972CG (interactive)">

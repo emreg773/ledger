@@ -10,7 +10,9 @@ export type ErrorCode =
   | "not_onboarded"
   | "rate_limited"
   | "unsupported_file"
-  | "file_too_large";
+  | "file_too_large"
+  | "too_many_pages"
+  | "files_too_large";
 
 export function errorCode(e: unknown): { code?: ErrorCode; retryAfterMs?: number } {
   if (e instanceof ConvexError && typeof e.data === "object" && e.data !== null) {
@@ -32,6 +34,10 @@ export function errorMessage(t: T, e: unknown, fallback: Parameters<T>[0]): stri
       return t("chat.uploadNotPhoto");
     case "file_too_large":
       return t("chat.uploadTooBig");
+    case "too_many_pages":
+      return t("chat.tooManyPages");
+    case "files_too_large":
+      return t("chat.pagesTooBig");
     case "not_signed_in":
     case "not_onboarded":
       return t("error.session");

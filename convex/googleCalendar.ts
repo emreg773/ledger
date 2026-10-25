@@ -76,6 +76,7 @@ export const startConnect = mutation({
   },
 });
 
+/** The home calendar calls this on open and when the tab comes back; skipped within a minute of the last sync. */
 export const syncNow = mutation({
   args: {},
   handler: async (ctx) => {
@@ -84,7 +85,8 @@ export const syncNow = mutation({
       .query("calendarConnections")
       .withIndex("by_owner", (q) => q.eq("ownerId", owner._id))
       .unique();
-    if (c) await ctx.scheduler.runAfter(0, internal.googleCalendar.sync, { ownerId: owner._id });
+    if (!c || c.error || (c.lastSyncedAt ?? 0) > Date.now() - 60_000) return null;
+    await ctx.scheduler.runAfter(0, internal.googleCalendar.sync, { ownerId: owner._id });
     return null;
   },
 });

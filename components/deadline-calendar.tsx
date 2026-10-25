@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
-import { CalendarPlus, ChevronLeft, ChevronRight, ExternalLink, Loader2 } from "lucide-react";
+import { CalendarClock, CalendarPlus, ChevronLeft, ChevronRight, ExternalLink, ListChecks, Loader2 } from "lucide-react";
 import { api } from "@/convex/_generated/api";
 import type { Doc } from "@/convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
@@ -11,11 +11,13 @@ import { countdown, formatMoney, localeFor } from "@/lib/format";
 import { docTypeName, useI18n } from "@/lib/i18n";
 import { useToday } from "@/lib/use-today";
 import { cn } from "@/lib/utils";
+import type { ActionView, OwnerTaskPayload, PayBillPayload } from "@/lib/contract";
 
-// The home screen's calendar: every open letter's deadline on a month grid,
-// plus the owner's own Google Calendar events (a dot under the day) once they
-// connect it. Tapping a marked day lists both; a letter opens in the chat, a
-// Google event opens in Google Calendar.
+// The home screen's calendar: every open letter's deadline and every open
+// to-do with a due date on a month grid, plus the owner's own Google Calendar
+// events (a dot under the day) once they connect it. Tapping a marked day lists
+// them; a letter or a to-do opens in the chat, a Google event opens in Google
+// Calendar. Ledger only reads the Google Calendar; to-dos never go into it.
 
 type CaseRow = Pick<Doc<"cases">, "_id" | "docType" | "title" | "deadline" | "amountDue" | "status">;
 type GoogleEvent = Pick<Doc<"calendarEvents">, "_id" | "title" | "date" | "time" | "htmlLink" | "business">;
@@ -28,10 +30,13 @@ const iso = (d: Date) =>
 
 export function DeadlineCalendar({
   cases,
+  tasks = [],
   filter = "business",
   preview,
 }: {
   cases: CaseRow[];
+  /** Open to-dos (proposed actions). Shown on their due date, or their letter's deadline. */
+  tasks?: ActionView[];
   /** The owner's setting: only business-looking Google events, or all of them. */
   filter?: "business" | "all";
   /** /dev only: mock Google events instead of the backend. */
@@ -47,6 +52,15 @@ export function DeadlineCalendar({
   const byDay = new Map<string, CaseRow[]>();
   for (const c of open) byDay.set(c.deadline!, [...(byDay.get(c.deadline!) ?? []), c]);
 
+  // Tasks proposed before owner_task had a due date fall back to their letter's deadline.
+  const deadlineOf = new Map(cases.map((c) => [c._id as string, c.deadline]));
+  const dated = tasks.flatMap((a) => {
+    const date = (a.payload as { dueDate?: string }).dueDate ?? deadlineOf.get(a.caseId);
+    return date ? [{ action: a, date }] : [];
+  });
+  const tasksByDay = new Map<string, typeof dated>();
+  for (const d of dated) tasksByDay.set(d.date, [...(tasksByDay.get(d.date) ?? []), d]);
+
   const [month, setMonth] = useState<{ y: number; m: number } | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const shown = month ?? (today ? { y: today.getFullYear(), m: today.getMonth() } : null);
@@ -57,6 +71,20 @@ export function DeadlineCalendar({
   const fetchedStatus = useQuery(api.googleCalendar.status, preview ? "skip" : {});
   const fetchedEvents = useQuery(api.googleCalendar.events, preview || !range ? "skip" : range);
   const status = preview ? preview.status : fetchedStatus;
+
+  // New Google events show up when the owner opens Ledger or comes back to the
+  // tab, not only on the hourly sync. The server skips it within a minute.
+  const syncNow = useMutation(api.googleCalendar.syncNow);
+  const connected = !preview && fetchedStatus?.connected === true;
+  useEffect(() => {
+    if (!connected) return;
+    const sync = () => {
+      if (document.visibilityState === "visible") syncNow({}).catch(console.error);
+    };
+    sync();
+    document.addEventListener("visibilitychange", sync);
+    return () => document.removeEventListener("visibilitychange", sync);
+  }, [connected, syncNow]);
   // Events synced before the business flag existed (undefined) still show.
   const googleEvents = (preview ? preview.events : (fetchedEvents ?? [])).filter(
     (e) => filter === "all" || e.business !== false,
@@ -88,10 +116,13 @@ export function DeadlineCalendar({
 
   // Under the grid: what's due and what's on the selected day, or the next deadlines.
   const listedEvents = selected ? (eventsByDay.get(selected) ?? []) : [];
+  const listedTasks = selected
+    ? (tasksByDay.get(selected) ?? [])
+    : dated.filter((d) => d.date >= todayIso).sort((a, b) => a.date.localeCompare(b.date)).slice(0, 3);
   const listed = selected
     ? (byDay.get(selected) ?? [])
     : open.filter((c) => c.deadline! >= todayIso).sort((a, b) => a.deadline!.localeCompare(b.deadline!)).slice(0, 3);
-  const overdue = open.filter((c) => c.deadline! < todayIso).length;
+  const overdue = open.filter((c) => c.deadline! < todayIso).length + dated.filter((d) => d.date < todayIso).length;
 
   return (
     <section className="ledger-card p-4 lg:flex lg:min-h-0 lg:flex-1 lg:flex-col lg:p-3.5" aria-label={t("home.calendar")}>
@@ -116,19 +147,21 @@ export function DeadlineCalendar({
         {cells.map((d, i) => {
           if (!d) return <div key={i} />;
           const key = iso(d);
-          const due = byDay.get(key);
+          const letters = byDay.get(key);
+          const todos = tasksByDay.get(key);
+          const due = letters || todos;
           const events = eventsByDay.get(key);
           const isPast = key < todayIso;
           return (
             <button
               key={i}
               type="button"
-              disabled={!due && !events}
               onClick={() => setSelected(selected === key ? null : key)}
               aria-pressed={selected === key}
               aria-label={
                 [
-                  due && t("home.dueOn", { date: key, count: due.length }),
+                  letters && t("home.dueOn", { date: key, count: letters.length }),
+                  todos && t("cal.todosOn", { count: todos.length }),
                   events && t("cal.eventsOn", { count: events.length }),
                 ]
                   .filter(Boolean)
@@ -162,7 +195,7 @@ export function DeadlineCalendar({
         <h3 className="text-xs font-medium text-muted-foreground uppercase">
           {selected ? t("home.dueThatDay") : overdue > 0 ? t("home.upcomingOverdue", { count: overdue }) : t("home.upcoming")}
         </h3>
-        {listed.length === 0 && listedEvents.length === 0 ? (
+        {listed.length === 0 && listedTasks.length === 0 && listedEvents.length === 0 ? (
           <p className="mt-2 text-sm text-muted-foreground">{t("home.noDeadlines")}</p>
         ) : (
           <ul className="mt-1 divide-y">
@@ -173,10 +206,13 @@ export function DeadlineCalendar({
                   <button
                     type="button"
                     onClick={() => openCase(c._id)}
-                    className="flex w-full items-center justify-between gap-3 py-2 text-left hover:opacity-80"
+                    className="flex w-full items-center gap-3 py-2 text-left hover:opacity-80"
                   >
-                    <span className="min-w-0">
-                      <span className="block truncate text-sm font-medium">{docTypeName(t, c.docType)}</span>
+                    <CalendarClock className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-medium">
+                        {c.docType === "COUNTY_HEALTH_INSPECTION" ? t("cal.reinspection") : docTypeName(t, c.docType)}
+                      </span>
                       <span className={cn("text-xs", due.overdue ? "font-medium text-destructive" : "text-muted-foreground")}>
                         {due.overdue ? t("doc.overdue") : t("notif.due", { when: due.label })}
                       </span>
@@ -188,6 +224,9 @@ export function DeadlineCalendar({
                 </li>
               );
             })}
+            {listedTasks.map(({ action, date }) => (
+              <TaskRow key={action._id} action={action} date={date} today={today} />
+            ))}
             {listedEvents.map((e) => (
               <li key={e._id}>
                 <a
@@ -293,5 +332,32 @@ function GoogleCalendarLine({
         </div>
       )}
     </div>
+  );
+}
+
+/** An open to-do under the calendar: what to do and when; tapping opens it in the chat. */
+function TaskRow({ action, date, today }: { action: ActionView; date: string; today: Date }) {
+  const { t, language } = useI18n();
+  const due = countdown(date, language, today);
+  const label =
+    action.type === "pay_bill"
+      ? `${formatMoney((action.payload as PayBillPayload).amount, language)} → ${(action.payload as PayBillPayload).payee}`
+      : (action.payload as OwnerTaskPayload).instructions;
+  return (
+    <li>
+      <button
+        type="button"
+        onClick={() => openCase(action.caseId)}
+        className="flex w-full items-center gap-3 py-2 text-left hover:opacity-80"
+      >
+        <ListChecks className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+        <span className="min-w-0">
+          <span className="block truncate text-sm font-medium">{label}</span>
+          <span className={cn("text-xs", due.overdue ? "font-medium text-destructive" : "text-muted-foreground")}>
+            {t("action.task")} · {due.overdue ? t("doc.overdue") : t("notif.due", { when: due.label })}
+          </span>
+        </span>
+      </button>
+    </li>
   );
 }

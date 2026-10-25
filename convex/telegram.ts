@@ -17,7 +17,7 @@ import { ownerLang, type Lang } from "./push";
 
 // Telegram (Step 4 brief B, Section 3). The owner sends a photo or file of a
 // letter to the Ledger bot, and Ledger reads it like an upload; the bot also
-// sends the result and, from digest.ts, the roundup and nudges. It doesn't
+// sends the result and, from nudges.ts, every notification. It doesn't
 // hold conversations: any other message gets one fixed reply.
 //
 // Env (Convex): TELEGRAM_BOT_TOKEN, TELEGRAM_BOT_USERNAME, TELEGRAM_WEBHOOK_SECRET.
@@ -44,12 +44,12 @@ const token = () => {
 
 const REPLIES = {
   connected: {
-    en: "Connected to Ledger. Send me a photo of any government letter.\n\nTip: send it as a file to keep it sharper than a photo.",
-    es: "Conectado a Ledger. Envíeme una foto de cualquier carta del gobierno.\n\nConsejo: envíela como archivo para que se vea más nítida que una foto.",
-    zh: "已连接 Ledger。请发送任何政府信件的照片给我。\n\n提示：以文件形式发送会比照片更清晰。",
-    vi: "Đã kết nối với Ledger. Hãy gửi cho tôi ảnh của bất kỳ thư nào từ cơ quan chính phủ.\n\nMẹo: gửi dưới dạng tệp sẽ rõ nét hơn gửi ảnh.",
-    ko: "Ledger에 연결되었습니다. 정부 기관에서 온 서류 사진을 보내 주세요.\n\n팁: 사진 대신 파일로 보내면 더 선명합니다.",
-    tr: "Ledger'a bağlandı. Devletten gelen herhangi bir mektubun fotoğrafını gönderin.\n\nİpucu: dosya olarak gönderirseniz fotoğraftan daha net olur.",
+    en: "Connected to Ledger!\nI'll message you here when there is something that requires your attention, at most once a day. You can also send me documents here.\n\nTip: send it as a file to keep it sharper than a photo.",
+    es: "¡Conectado a Ledger!\nLe escribiré aquí cuando haya algo que requiera su atención, como máximo una vez al día. También puede enviarme documentos aquí.\n\nConsejo: envíelo como archivo para que se vea más nítido que una foto.",
+    zh: "已连接 Ledger！\n有需要您处理的事情时，我会在这里通知您，每天最多一次。您也可以在这里给我发送文件。\n\n提示：以文件形式发送会比照片更清晰。",
+    vi: "Đã kết nối với Ledger!\nTôi sẽ nhắn bạn tại đây khi có việc cần bạn chú ý, tối đa một lần mỗi ngày. Bạn cũng có thể gửi tài liệu cho tôi tại đây.\n\nMẹo: gửi dưới dạng tệp sẽ rõ nét hơn gửi ảnh.",
+    ko: "Ledger에 연결되었습니다!\n확인이 필요한 일이 있으면 하루에 한 번까지 여기로 알려 드릴게요. 여기로 서류를 보내실 수도 있습니다.\n\n팁: 사진 대신 파일로 보내면 더 선명합니다.",
+    tr: "Ledger'a bağlandı!\nİlgilenmeniz gereken bir şey olduğunda size buradan, günde en fazla bir kez yazacağım. Bana buradan belge de gönderebilirsiniz.\n\nİpucu: dosya olarak gönderirseniz fotoğraftan daha net olur.",
   },
   badCode: {
     en: "This link has expired. Open Ledger and tap Connect Telegram again.",
@@ -205,7 +205,11 @@ export const sendToChat = internalAction({
   },
 });
 
-/** The answer to a letter sent on Telegram: the same title and body as the push, plus a link to the case. */
+/**
+ * The answer to a letter sent on Telegram: the same title and body as the
+ * notification center, plus a link that opens the chat at this letter (its
+ * card shows the attachment and the caption, like a web upload with a note).
+ */
 export const notifyDocumentResult = internalAction({
   args: {
     ownerId: v.id("owners"),
@@ -214,10 +218,10 @@ export const notifyDocumentResult = internalAction({
     title: v.string(),
     body: v.string(),
   },
-  handler: async (ctx, { ownerId, caseId, title, body }) => {
+  handler: async (ctx, { ownerId, documentId, title, body }) => {
     const owner = await ctx.runQuery(internal.owners.get, { ownerId });
     if (!owner?.telegramChatId) return null;
-    const link = caseId ? `${site()}/?case=${caseId}` : site();
+    const link = `${site()}/?doc=${documentId}`;
     await send(owner.telegramChatId, `${title}\n\n${body}\n\n${link}`);
     return null;
   },

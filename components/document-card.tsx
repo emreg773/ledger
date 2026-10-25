@@ -12,7 +12,11 @@ import { countdown, formatDate, formatMoney, formatShortDate } from "@/lib/forma
 import type { CaseView } from "@/lib/contract";
 import { useToday } from "@/lib/use-today";
 
-type DocumentWithUrl = Doc<"documents"> & { url: string | null };
+type DocumentWithUrl = Doc<"documents"> & {
+  url: string | null;
+  // Every page in order, page 1 included. Absent on mocks.
+  pages?: { url: string | null; mimeType: string }[];
+};
 
 const LOW_CONFIDENCE = 0.6;
 
@@ -167,7 +171,34 @@ export function DocumentCard({
 
   return (
     <div className="w-full max-w-sm overflow-hidden rounded-xl border bg-card">
-      {doc.url && isImage ? (
+      {doc.pages && doc.pages.length > 1 ? (
+        <div>
+          <div className="flex gap-1.5 overflow-x-auto p-1.5">
+            {doc.pages.map((page, i) => (
+              <a
+                key={i}
+                href={page.url ?? undefined}
+                target="_blank"
+                rel="noreferrer"
+                className="relative shrink-0"
+              >
+                {page.url && page.mimeType.startsWith("image/") ? (
+                  // eslint-disable-next-line @next/next/no-img-element -- Convex storage URL
+                  <img src={page.url} alt={t("doc.image")} className="h-40 w-28 rounded-md border object-cover" />
+                ) : (
+                  <div className="flex h-40 w-28 flex-col items-center justify-center gap-1 rounded-md border bg-muted text-xs">
+                    <FileText className="size-5" /> PDF
+                  </div>
+                )}
+                <span className="absolute bottom-1 left-1 rounded bg-background/80 px-1 text-[10px] font-medium">
+                  {i + 1}
+                </span>
+              </a>
+            ))}
+          </div>
+          <div className="px-3 pb-1.5 text-xs text-muted-foreground">{t("doc.pages", { count: doc.pages.length })}</div>
+        </div>
+      ) : doc.url && isImage ? (
         <a href={doc.url} target="_blank" rel="noreferrer">
           {/* eslint-disable-next-line @next/next/no-img-element -- Convex storage URL */}
           <img src={doc.url} alt={t("doc.image")} className="max-h-56 w-full object-cover" />

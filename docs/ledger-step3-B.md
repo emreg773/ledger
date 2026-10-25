@@ -93,7 +93,7 @@ Use Convex Auth's **React (client-only)** setup, not its Next.js server-side set
 
 Real people may upload real letters. Add one line under the upload button and on the sign-in screen, translated:
 
-> Hackathon prototype. Before uploading a real letter, cover your SSN, EIN and account numbers. Your files are read by Anthropic's Claude.
+> Hackathon prototype. Your files are read by Anthropic's Claude.
 
 Also link "Delete my account" from the welcome message.
 
