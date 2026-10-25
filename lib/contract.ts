@@ -35,7 +35,7 @@ export type OwnerTaskPayload = {
   instructions: string;
   checklist?: string[]; // e.g. a health inspection's fix list, in the owner's language
   dueDate?: string; // ISO; the case's deadline when the task was proposed
-  callScript?: { en: string; translated: string };
+  callScript?: { en: string; translated?: string }; // translated: not for English-speaking owners
   phone?: string;
 };
 

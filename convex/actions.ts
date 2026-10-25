@@ -31,7 +31,7 @@ const AUTONOMY: Record<ActionType, Autonomy> = {
   owner_task: "human_only",
 };
 
-/** pay_bill payload. owner_task payload: { instructions, checklist?, dueDate?, callScript?: { en, translated }, phone? }. */
+/** pay_bill payload. owner_task payload: { instructions, checklist?, dueDate?, callScript?: { en, translated? }, phone? }. */
 export type PayBillPayload = {
   amount: number;
   payee: string;
@@ -64,6 +64,26 @@ function describe(action: Pick<Doc<"actions">, "type" | "payload" | "summary">):
 /** The action, if it belongs to the signed-in owner (Step 3: owner from the session). */
 async function load(ctx: MutationCtx, actionId: Id<"actions">) {
   return await requireOwnerOf(ctx, await ctx.db.get(actionId));
+}
+
+/**
+ * Once a case has nothing left to approve, reject or mark done, its "Action
+ * needed" notifications leave the list (notifications.ts), so they shouldn't
+ * keep the bell's unread badge up either.
+ */
+async function readFinishedCaseNotices(ctx: MutationCtx, action: Doc<"actions">) {
+  const pending = await ctx.db
+    .query("actions")
+    .withIndex("by_case", (q) => q.eq("caseId", action.caseId))
+    .filter((q) => q.eq(q.field("status"), "proposed"))
+    .first();
+  if (pending) return;
+  const notices = await ctx.db
+    .query("notifications")
+    .withIndex("by_owner_and_category", (q) => q.eq("ownerId", action.ownerId).eq("category", "needs_action"))
+    .filter((q) => q.and(q.eq(q.field("caseId"), action.caseId), q.eq(q.field("readAt"), undefined)))
+    .collect();
+  for (const n of notices) await ctx.db.patch(n._id, { readAt: Date.now() });
 }
 
 // ---------- Contract (shared with Track A) ----------
@@ -121,6 +141,7 @@ export const approve = mutation({
       summary: `Owner approved ${describe(action)}`,
       data: { actionId },
     });
+    await readFinishedCaseNotices(ctx, action);
     await ctx.scheduler.runAfter(0, internal.actions.execute, { actionId });
     return null;
   },
@@ -146,6 +167,7 @@ export const reject = mutation({
       summary: `Owner declined ${describe(action)}${reason ? `: ${reason}` : ""}`,
       data: { actionId, reason },
     });
+    await readFinishedCaseNotices(ctx, action);
     await notifyAgent(ctx, action.ownerId, actionId);
     return null;
   },
@@ -171,6 +193,7 @@ export const markDone = mutation({
       summary: `Owner marked done: ${describe(action)}`,
       data: { actionId },
     });
+    await readFinishedCaseNotices(ctx, action);
     await notifyAgent(ctx, action.ownerId, actionId);
     return null;
   },

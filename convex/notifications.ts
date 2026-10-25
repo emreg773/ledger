@@ -72,7 +72,11 @@ export const list = query({
         hasPendingAction: pending !== null,
       });
     }
-    return rows.map((n) => ({ ...n, case: n.caseId ? (cases.get(n.caseId) ?? null) : null }));
+    // "Action needed" leaves the list once its case has nothing left to approve,
+    // reject or mark done (and comes back if a task is reopened).
+    return rows
+      .map((n) => ({ ...n, case: n.caseId ? (cases.get(n.caseId) ?? null) : null }))
+      .filter((n) => !(n.category === "needs_action" && n.case && !n.case.hasPendingAction));
   },
 });
 
