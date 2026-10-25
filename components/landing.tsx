@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import Image from "next/image";
 import Link from "next/link";
 import { useAuthActions } from "@convex-dev/auth/react";
@@ -178,11 +179,25 @@ export function Landing({
   const reduced = usePrefersReducedMotion();
   useThemeColor("#000000");
 
+  // Switching language changes the length of every text, so the page reflows.
+  // Keep the control that was used at the same spot on screen, and crossfade
+  // the old page into the new one instead of letting everything jump.
+  const switchLanguage: SwitchLanguage = (code, anchor) => {
+    if (code === language) return;
+    const top = anchor?.getBoundingClientRect().top;
+    const apply = () => {
+      flushSync(() => onLanguage(code));
+      if (anchor && top !== undefined) window.scrollBy(0, anchor.getBoundingClientRect().top - top);
+    };
+    if (reduced || typeof document.startViewTransition !== "function") apply();
+    else document.startViewTransition(apply);
+  };
+
   return (
     <div className="landing flex min-h-dvh flex-1 flex-col overflow-x-clip bg-black text-[#f4f4f5] antialiased">
       <Hero
         language={language}
-        onLanguage={onLanguage}
+        onLanguage={switchLanguage}
         google={google}
         reduced={reduced}
       />
@@ -191,7 +206,7 @@ export function Landing({
       <Demo reduced={reduced} />
       <Products />
       <Features />
-      <Languages language={language} onLanguage={onLanguage} />
+      <Languages language={language} onLanguage={switchLanguage} />
       <FinalCta google={google} />
       <footer className="border-t border-white/5 px-4 py-10 text-sm text-[#9a9aa2]">
         <div className="mx-auto flex max-w-6xl flex-col gap-6 md:flex-row md:items-start md:justify-between">
@@ -213,6 +228,7 @@ export function Landing({
 }
 
 type Google = ReturnType<typeof useGoogleSignIn>;
+type SwitchLanguage = (code: string, anchor?: Element | null) => void;
 
 function Brand() {
   return (
@@ -228,7 +244,7 @@ function LanguagePicker({
   onLanguage,
 }: {
   language: string;
-  onLanguage: (code: string) => void;
+  onLanguage: SwitchLanguage;
 }) {
   const { t } = useI18n();
   const current = LANGUAGES.find((l) => l.code === language) ?? LANGUAGES[1];
@@ -239,7 +255,7 @@ function LanguagePicker({
       <ChevronDown className="size-3.5 text-[#5f5f68]" />
       <select
         value={current.code}
-        onChange={(e) => onLanguage(e.target.value)}
+        onChange={(e) => onLanguage(e.target.value, e.currentTarget)}
         aria-label={t("chat.language")}
         className="absolute inset-0 cursor-pointer opacity-0"
       >
@@ -260,7 +276,7 @@ function Hero({
   reduced,
 }: {
   language: string;
-  onLanguage: (code: string) => void;
+  onLanguage: SwitchLanguage;
   google: Google;
   reduced: boolean;
 }) {
@@ -689,7 +705,7 @@ function Languages({
   onLanguage,
 }: {
   language: string;
-  onLanguage: (code: string) => void;
+  onLanguage: SwitchLanguage;
 }) {
   const { t } = useI18n();
   return (
@@ -708,7 +724,7 @@ function Languages({
               type="button"
               lang={l.code}
               aria-pressed={l.code === language}
-              onClick={() => onLanguage(l.code)}
+              onClick={(e) => onLanguage(l.code, e.currentTarget)}
               className={cn(
                 "text-3xl font-medium tracking-tight transition-colors sm:text-5xl",
                 l.code === language ? "text-white" : "text-white/20 hover:text-white/60",
