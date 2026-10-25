@@ -394,8 +394,17 @@ export const saveSync = internalMutation({
     // The first sync looks back 30 days; only newer mail is "new" enough to notify about.
     const firstSync = c.lastSyncedAt === undefined;
     let autoRead = 0;
+    const inserted: { category: string }[] = [];
     for (const m of messages ?? []) {
+      // Two syncs can overlap (the one after connecting and a refresh, say) and
+      // both fetch the same email; this transaction is where it's decided once.
+      const seen = await ctx.db
+        .query("gmailMessages")
+        .withIndex("by_owner_and_gmail_id", (q) => q.eq("ownerId", ownerId).eq("gmailId", m.gmailId))
+        .first();
+      if (seen) continue;
       const messageId = await ctx.db.insert("gmailMessages", { ownerId, ...m });
+      inserted.push(m);
       const isRecent = !firstSync || m.receivedAt > Date.now() - 2 * 86_400_000;
       if (m.category === "government" && readable(m) && autoRead < MAX_AUTO_READ) {
         autoRead++;
@@ -408,15 +417,32 @@ export const saveSync = internalMutation({
         });
       }
     }
-    if (messages && messages.length > 0) {
-      const counts = messages.reduce<Record<string, number>>((n, m) => ({ ...n, [m.category]: (n[m.category] ?? 0) + 1 }), {});
+    if (inserted.length > 0) {
+      const counts = inserted.reduce<Record<string, number>>((n, m) => ({ ...n, [m.category]: (n[m.category] ?? 0) + 1 }), {});
       await logEvent(ctx, {
         ownerId,
         type: "gmail_synced",
-        summary: `Sorted ${messages.length} new emails: ${Object.entries(counts).map(([k, n]) => `${n} ${k}`).join(", ")}`,
+        summary: `Sorted ${inserted.length} new emails: ${Object.entries(counts).map(([k, n]) => `${n} ${k}`).join(", ")}`,
       });
     }
     await ctx.db.patch(c._id, { lastSyncedAt: Date.now(), error: undefined });
+  },
+});
+
+/** One-off cleanup: keeps the oldest row of each email (npx convex run gmail:removeDuplicates). */
+export const removeDuplicates = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const seen = new Set<string>();
+    let removed = 0;
+    for (const m of await ctx.db.query("gmailMessages").order("asc").collect()) {
+      const key = `${m.ownerId}/${m.gmailId}`;
+      if (seen.has(key)) {
+        await ctx.db.delete(m._id);
+        removed++;
+      } else seen.add(key);
+    }
+    return { removed };
   },
 });
 
