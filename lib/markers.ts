@@ -1,5 +1,5 @@
 // The agent puts `[action:<id>]` on its own line to place an action card,
-// the same way Step 1 uses `[document:<id>]` for arrivals.
+// the same way `[document:<id>]` marks for arrivals.
 const ACTION_LINE = /^\s*\[action:([a-z0-9]+)\]\s*$/;
 
 export type ReplyPart = { kind: "text"; text: string } | { kind: "action"; actionId: string };

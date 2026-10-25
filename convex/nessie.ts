@@ -40,7 +40,7 @@ export const isLive = () => process.env.NESSIE_MODE === "live";
 // HTTPS only: plain http:// (as in the SDK) no longer connects.
 const BASE_URL = () => process.env.NESSIE_BASE_URL ?? "https://api.nessieisreal.com";
 
-// ---------- Demo data (brief Section 5) ----------
+// ---------- Demo data ----------
 
 const DEMO_BALANCE = 4800;
 const DEMO_ACCOUNT_NUMBER = "0000000000004417";
@@ -304,7 +304,7 @@ async function getSnapshot(ctx: ActionCtx, accountId: string): Promise<BankSnaps
   };
 }
 
-// ---------- check_bank_history (brief Section 5) ----------
+// ---------- check_bank_history ----------
 
 const LOOKBACK_DAYS = 120;
 const AMOUNT_TOLERANCE = 1.0;
@@ -401,7 +401,7 @@ export const saveBankCheck = internalMutation({
   },
 });
 
-// ---------- payBill (called by Track B's executor) ----------
+// ---------- payBill (called by the action executor) ----------
 
 export const getActionForPayment = internalQuery({
   args: { actionId: v.id("actions") },
@@ -413,7 +413,7 @@ export const getActionForPayment = internalQuery({
   },
 });
 
-/** Called only by Track B's executor after the owner approves a pay_bill action. */
+/** Called only by the action executor (actions.ts) after the owner approves a pay_bill action. */
 export const payBill = internalAction({
   args: { actionId: v.id("actions") },
   handler: async (ctx, { actionId }): Promise<PayBillResult> => {

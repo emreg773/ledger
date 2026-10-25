@@ -5,7 +5,7 @@ import type { Id } from "./_generated/dataModel";
 import { requireOwner, viewerOwner } from "./access";
 import { logEvent } from "./events";
 
-// The demo clock (Step 4 brief, Section 4). Each owner can skip time forward;
+// The demo clock. Each owner can skip time forward;
 // every time-based check (deadlines, countdowns, Telegram nudges) uses nowMs()
 // instead of Date.now().
 

@@ -34,7 +34,7 @@ import { useI18n } from "@/lib/i18n";
 import { DemoClockDialog } from "@/components/demo-clock";
 import { useTelegram } from "@/components/notifications";
 
-// Header menu (docs/ledger-step3-B.md, Section 4): language, notifications
+// Header menu: language, notifications
 // (Telegram), start over, delete account, sign out.
 
 type Confirm = "reset" | "delete" | null;

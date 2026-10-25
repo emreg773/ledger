@@ -9,7 +9,7 @@ export const documentSource = v.union(
   v.literal("web_upload"),
   v.literal("gmail"),
   v.literal("whatsapp"),
-  v.literal("telegram"), // Step 4
+  v.literal("telegram"),
 );
 
 export const documentStatus = v.union(
@@ -34,7 +34,7 @@ export const actionType = v.union(
   v.literal("create_document"),
   v.literal("add_calendar_event"),
   v.literal("schedule_followup"),
-  // Step 2: a human-only step (a call, a signature). Instructions are in the payload.
+  // A human-only step (a call, a signature). Instructions are in the payload.
   v.literal("owner_task"),
 );
 
@@ -62,7 +62,7 @@ export const taskStatus = v.union(
 
 // Notification center categories. needs_action: the owner has a decision to
 // make. alert: a suspected scam or something that failed. letter: a letter was
-// read. done: a payment or task finished. reminder (Step 4): a Telegram nudge
+// read. done: a payment or task finished. reminder: a Telegram nudge
 // (nudges.ts).
 export const notificationCategory = v.union(
   v.literal("needs_action"),
@@ -78,13 +78,13 @@ export const verificationVerdict = v.union(
   v.literal("unverified"),
 );
 
-// Step 2: result of verify_sender, saved on the case.
+// Result of verify_sender, saved on the case.
 export const caseVerification = v.object({
   verdict: verificationVerdict,
   reasons: v.array(v.string()),
 });
 
-// Step 2: result of check_bank_history, saved on the case.
+// Result of check_bank_history, saved on the case.
 export const bankPaymentMatch = v.object({
   date: v.string(), // ISO date
   amount: v.number(),
@@ -100,11 +100,11 @@ export const caseBankCheck = v.object({
 });
 
 export default defineSchema({
-  // Step 3: Convex Auth (users, sessions, accounts, ...). One owner per user.
+  // Convex Auth (users, sessions, accounts, ...). One owner per user.
   ...authTables,
 
   owners: defineTable({
-    userId: v.optional(v.id("users")), // TODO(step3): required once dev owners without it are wiped
+    userId: v.optional(v.id("users")), // TODO: required once dev owners without it are wiped
     name: v.string(),
     businessName: v.string(),
     preferredLanguage: v.string(), // BCP-47, e.g. "es"
@@ -114,22 +114,22 @@ export default defineSchema({
     email: v.optional(v.string()),
     whatsappNumber: v.optional(v.string()),
     agentThreadId: v.string(),
-    // Step 2: Nessie bank account (live or mock)
+    // Nessie bank account (live or mock)
     nessieCustomerId: v.optional(v.string()),
     nessieAccountId: v.optional(v.string()),
     accountLast4: v.optional(v.string()),
     // Which Google Calendar events the home calendar shows; unset means "business".
     calendarFilter: v.optional(v.union(v.literal("business"), v.literal("all"))),
-    // Step 4: the demo clock (clock.ts). Every time-based check uses now + this.
+    // The demo clock (clock.ts). Every time-based check uses now + this.
     clockOffsetMs: v.optional(v.number()),
-    // Step 4: the linked Telegram chat (telegram.ts)
+    // The linked Telegram chat (telegram.ts)
     telegramChatId: v.optional(v.string()),
   })
     .index("by_userId", ["userId"])
     .index("by_email", ["email"])
     .index("by_whatsappNumber", ["whatsappNumber"]),
 
-  // Step 3: web push subscriptions, one row per browser/device.
+  // Web push subscriptions, one row per browser/device.
   pushSubscriptions: defineTable({
     ownerId: v.id("owners"),
     endpoint: v.string(),
@@ -198,7 +198,7 @@ export default defineSchema({
     .index("by_owner_and_read", ["ownerId", "readAt"])
     .searchIndex("search_text", { searchField: "searchText", filterFields: ["ownerId", "category"] }),
 
-  // Step 5
+  // Staff members (not used yet)
   staff: defineTable({
     ownerId: v.id("owners"),
     name: v.string(),
@@ -222,7 +222,7 @@ export default defineSchema({
     error: v.optional(v.string()),
     // Set when the extraction opens (or updates) a case, so the UI can link them.
     caseId: v.optional(v.id("cases")),
-    // Step 4: the owner's caption (e.g. on Telegram). A hint only; the document decides.
+    // The owner's caption (e.g. on Telegram). A hint only; the document decides.
     hint: v.optional(v.string()),
     // Demo-clock times (clock.ts) for nudges.ts: when Ledger read it, and when
     // the owner first had its card on screen in the app.
@@ -268,11 +268,11 @@ export default defineSchema({
     deadline: v.optional(v.string()), // ISO date
     status: caseStatus,
     createdAt: v.number(),
-    // Step 2: the investigation results
+    // The investigation results
     verification: v.optional(caseVerification),
     bankCheck: v.optional(caseBankCheck),
     playbookDocType: v.optional(v.string()),
-    // Step 4: case memory. Letters with the same key join one case (documents.ts caseKeyOf).
+    // Case memory. Letters with the same key join one case (documents.ts caseKeyOf).
     caseKey: v.optional(v.string()),
     stage: v.optional(v.number()), // 1: first notice, 2: an escalation (CP504 after CP14)
     // Demo-clock time the case opened; nudges count days from it (createdAt is real time).
@@ -283,7 +283,7 @@ export default defineSchema({
     .index("by_document", ["documentId"])
     .index("by_owner_and_key", ["ownerId", "caseKey"]),
 
-  // Step 4: Telegram link codes (telegram.ts). The owner sends /start <code> to the bot.
+  // Telegram link codes (telegram.ts). The owner sends /start <code> to the bot.
   telegramLinkCodes: defineTable({
     ownerId: v.id("owners"),
     code: v.string(),
@@ -303,7 +303,7 @@ export default defineSchema({
     addedAt: v.number(),
   }).index("by_group", ["groupId"]),
 
-  // Step 4: nudges already sent, so none repeats (nudges.ts). Keys:
+  // Nudges already sent, so none repeats (nudges.ts). Keys:
   // "nudge|day|<isoDate>", "nudge|case|<caseId>|<level>", "nudge|unopened|<documentId>".
   sentLog: defineTable({
     ownerId: v.id("owners"),
@@ -311,7 +311,7 @@ export default defineSchema({
     sentAt: v.number(),
   }).index("by_owner_and_key", ["ownerId", "key"]),
 
-  // Step 2: proposed and executed actions. This is how approvals work.
+  // Proposed and executed actions. This is how approvals work.
   actions: defineTable({
     caseId: v.id("cases"),
     ownerId: v.id("owners"),
@@ -332,7 +332,7 @@ export default defineSchema({
     .index("by_case", ["caseId"])
     .index("by_owner_and_status", ["ownerId", "status"]),
 
-  // Step 6: staff work items
+  // Staff work items (not used yet)
   tasks: defineTable({
     caseId: v.id("cases"),
     ownerId: v.id("owners"),
@@ -347,7 +347,7 @@ export default defineSchema({
     .index("by_staff_and_status", ["staffId", "status"])
     .index("by_owner_and_status", ["ownerId", "status"]),
 
-  // Step 3
+  // Generated PDF and Word files (not used yet)
   generatedDocuments: defineTable({
     caseId: v.id("cases"),
     ownerId: v.id("owners"),
@@ -360,7 +360,7 @@ export default defineSchema({
     .index("by_owner", ["ownerId"])
     .index("by_storageId", ["storageId"]),
 
-  // Step 2: mock Nessie bank (NESSIE_MODE=mock). Same shapes as the live API's
+  // Mock Nessie bank (NESSIE_MODE=mock). Same shapes as the live API's
   // accounts and bills, so the demo works when Nessie is down.
   mockBankAccounts: defineTable({
     customerId: v.string(),

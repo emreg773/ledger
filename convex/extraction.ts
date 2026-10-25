@@ -5,7 +5,7 @@ import type { Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
 import { extractionModel, sampleWatermarkRule } from "./models";
 
-// ---------- Schema (brief Section 8) ----------
+// ---------- Schema ----------
 
 export const DOC_TYPES = [
   "IRS_CP14",
@@ -74,7 +74,7 @@ const modelExtractionSchema = z.object({
     .string()
     .optional()
     .describe('e.g. "Form 941, period ending 2026-06-30"'),
-  // Step 4 case memory: what ties a later notice to the same case (documents.ts
+  // Case memory: what ties a later notice to the same case (documents.ts
   // caseKeyOf). Plain strings, empty when not printed: as nullable fields
   // (anyOf string/null) these five pushed the schema past the API's limit
   // ("The compiled grammar is too large"). toStoredExtraction() turns "" into

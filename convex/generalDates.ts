@@ -1,5 +1,5 @@
-// General due dates for the forms Ledger's supported letters are about (Step 4
-// brief, Section 5). Hardcoded on purpose. Rules checked on irs.gov (Oct 24, 2026):
+// General due dates for the forms Ledger's supported letters are about.
+// Hardcoded on purpose. Rules checked on irs.gov (Oct 24, 2026):
 // - Form 941: due the last day of the month after each quarter; a Saturday,
 //   Sunday or legal holiday moves it to the next business day.
 //   https://www.irs.gov/taxtopics/tc758, https://www.irs.gov/publications/p509

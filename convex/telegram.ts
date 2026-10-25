@@ -16,7 +16,7 @@ import { logEvent } from "./events";
 import { SUPPORTED_TYPES } from "./extraction";
 import { ownerLang, type Lang } from "./push";
 
-// Telegram (Step 4 brief B, Section 3). The owner sends a photo or file of a
+// Telegram. The owner sends a photo or file of a
 // letter to the Ledger bot, and Ledger reads it like an upload; the bot also
 // sends the result and, from nudges.ts, every notification. It doesn't
 // hold conversations: any other message gets one fixed reply.
@@ -468,7 +468,7 @@ export const ownerByChat = internalQuery({
   handler: async (ctx, { chatId }) => (await ownersWithChat(ctx, chatId))[0] ?? null,
 });
 
-// No index on owners.telegramChatId (the schema is Person A's), and the owners
+// No index on owners.telegramChatId (not worth a schema change), and the owners
 // table is small, so a scan is fine here.
 async function ownersWithChat(ctx: QueryCtx, chatId: string) {
   return (await ctx.db.query("owners").collect()).filter((o) => o.telegramChatId === chatId);

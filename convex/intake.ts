@@ -12,7 +12,7 @@ import { checkAgentRun, checkOwnerLimit } from "./limits";
 import { ownedThread, startConversation, touchConversation } from "./conversations";
 import { SUPPORTED_TYPES } from "./extraction";
 
-// Channel-agnostic document intake (brief Section 9).
+// Channel-agnostic document intake.
 // Every channel calls ingest(): web upload and Telegram.
 
 const MAX_BYTES = 10 * 1024 * 1024;
@@ -148,7 +148,7 @@ export const ingestDocument = internalMutation({
 
 /** Web upload. A thin public wrapper; all logic stays in ingest(). */
 export const ingestWebUpload = mutation({
-  // TODO(step3): ownerId is ignored and goes away once Track B's UI stops sending it.
+  // TODO: ownerId is ignored; remove it once no client sends it.
   args: {
     storageId: v.id("_storage"),
     mimeType: v.string(),

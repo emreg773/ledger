@@ -14,8 +14,7 @@ import { errorMessage } from "@/lib/errors";
 import { I18nProvider, useI18n } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
-// What the one page shows: landing (sign-in) → onboarding → chat
-// (docs/ledger-step3-B.md, Sections 3 and 4).
+// What the one page shows: landing (sign-in) → onboarding → chat.
 
 const LANGUAGE_KEY = "ledger.language";
 

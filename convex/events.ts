@@ -46,7 +46,7 @@ export const listForOwner = internalQuery({
 
 /** Live activity for the UI: events newest first, optionally only those after sinceMs. */
 export const listRecentForOwner = query({
-  // TODO(step3): ownerId is ignored and goes away once Track B's UI stops sending it.
+  // TODO: ownerId is ignored; remove it once no client sends it.
   args: {
     ownerId: v.optional(v.id("owners")),
     sinceMs: v.optional(v.number()),

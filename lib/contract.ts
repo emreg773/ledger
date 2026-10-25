@@ -1,6 +1,6 @@
 import type { Doc, Id } from "@/convex/_generated/dataModel";
 
-// Shapes from the Step 2 contract (docs/ledger-step2-B.md, Section 8),
+// Shapes the UI reads from the backend,
 // derived from the schema so they can't drift.
 
 type Verification = NonNullable<Doc<"cases">["verification"]>;

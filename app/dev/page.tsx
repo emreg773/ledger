@@ -20,8 +20,8 @@ import {
   mockOwner,
 } from "@/lib/mocks";
 
-// Preview of every Track B card state, from mock data shaped like the Step 2
-// contract. Lets us build and check the UI before Track A's functions land.
+// Preview of every card state, from mock data shaped like lib/contract.ts.
+// Lets us build and check the UI without a backend.
 // The first 972CG card is live: Approve → confirm → "Paying…" → "Paid ✓".
 
 const noop = async () => {};
@@ -32,7 +32,7 @@ export default function DevPreview() {
     <I18nProvider language={language}>
       <div className="mx-auto w-full max-w-2xl space-y-8 px-4 py-6">
         <header className="flex items-center justify-between gap-2">
-          <h1 className="text-lg font-semibold">Track B preview (mock data)</h1>
+          <h1 className="text-lg font-semibold">Card preview (mock data)</h1>
           <select
             value={language}
             onChange={(e) => setLanguage(e.target.value)}
@@ -47,13 +47,13 @@ export default function DevPreview() {
           </select>
         </header>
 
-        <Section title="Step 3: onboarding">
+        <Section title="Onboarding">
           <div className="rounded-xl border">
             <Onboarding language={language} onLanguage={setLanguage} />
           </div>
         </Section>
 
-        <Section title="Step 3: header menu, welcome, notification banner">
+        <Section title="Header menu, welcome, notification banner">
           <div className="relative flex items-center justify-between rounded-xl border px-3 py-2">
             <div className="font-semibold">{mockOwner.businessName}</div>
             <AppMenu owner={{ ...mockOwner, preferredLanguage: language }} preview />

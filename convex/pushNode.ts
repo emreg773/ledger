@@ -5,7 +5,7 @@ import webpush from "web-push";
 import { internal } from "./_generated/api";
 import { internalAction } from "./_generated/server";
 
-// Sends one push to every device an owner subscribed (Step 3 brief, Section 7).
+// Sends one push to every device an owner subscribed.
 // web-push needs Node, so this file runs in the Node runtime. It never throws:
 // a failed push must not break the agent run that triggered it.
 

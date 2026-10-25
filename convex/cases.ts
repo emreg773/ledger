@@ -17,7 +17,7 @@ export const get = query({
 
 /** The owner's cases, newest first. */
 export const listForOwner = query({
-  // TODO(step3): ownerId is ignored and goes away once Track B's UI stops sending it.
+  // TODO: ownerId is ignored; remove it once no client sends it.
   args: { ownerId: v.optional(v.id("owners")) },
   handler: async (ctx) => {
     const owner = await viewerOwner(ctx);

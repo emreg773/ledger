@@ -10,7 +10,7 @@ import { deleteAuthUser, deleteOwner, deleteOwnerData } from "./admin";
 import { seedBankFor } from "./nessie";
 import { LANGUAGES } from "./shared";
 
-// One owner per Google account (Step 3 brief, Section 5). The owner always comes
+// One owner per Google account The owner always comes
 // from the session; no public function takes an ownerId.
 
 /** The signed-in user's owner, or null when signed out or not onboarded. */
@@ -19,7 +19,7 @@ export const me = query({
   handler: async (ctx) => await viewerOwner(ctx),
 });
 
-// TODO(step3): delete once Track B's chat uses owners.me. Same result.
+// TODO: delete once no client calls it; owners.me gives the same result.
 export const getDemoOwner = query({
   args: {},
   handler: async (ctx) => await viewerOwner(ctx),
@@ -99,7 +99,7 @@ async function newThread(ctx: MutationCtx, ownerId: Id<"owners">, title: string)
 }
 
 export const setLanguage = mutation({
-  // TODO(step3): ownerId is ignored and goes away once Track B's UI stops sending it.
+  // TODO: ownerId is ignored; remove it once no client sends it.
   args: { language: v.string(), ownerId: v.optional(v.id("owners")) },
   handler: async (ctx, { language }) => {
     const owner = await requireOwner(ctx);

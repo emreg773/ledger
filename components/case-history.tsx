@@ -18,7 +18,7 @@ import {
 import { docTypeName, useI18n, type T } from "@/lib/i18n";
 import { formatDate, formatMoney } from "@/lib/format";
 
-// Case memory (Step 4): every notice, bank payment, action and link of a case,
+// Case memory: every notice, bank payment, action and link of a case,
 // oldest first, from cases.timeline. Opened from the document card.
 
 export function CaseHistoryButton({ caseId }: { caseId: Id<"cases"> }) {

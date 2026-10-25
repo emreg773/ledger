@@ -6,8 +6,8 @@ import type { notificationCategory } from "./schema";
 import { requireOwner, viewerOwner } from "./access";
 import { MIN_CONFIDENCE } from "./extraction";
 
-// Web push (Step 3 brief, Section 7). Track B's service worker subscribes and
-// calls saveSubscription; Track A sends every push (notifyOwner → pushNode.send).
+// Web push. The service worker (public/sw.js) subscribes and calls
+// saveSubscription; the backend sends every push (notifyOwner → pushNode.send).
 //
 // Web push is OFF for now (WEB_PUSH below): notifications are Telegram nudges
 // (nudges.ts), and queuePush only records them for the notification center.
@@ -22,7 +22,7 @@ export const pushKind = v.union(
   v.literal("action_done"),
   v.literal("document_failed"),
   v.literal("test"),
-  // Step 4. Its text comes from the caller (queuePush's `text` option).
+  // Its text comes from the caller (queuePush's `text` option).
   v.literal("nudge"), // nudges.ts
 );
 
@@ -91,7 +91,7 @@ export const sendTest = mutation({
   },
 });
 
-/** Builds the message for an owner and sends it to their devices. Track A's triggers only. */
+/** Builds the message for an owner and sends it to their devices. Backend triggers only. */
 export const notifyOwner = internalMutation({
   args: {
     ownerId: v.id("owners"),
@@ -415,7 +415,7 @@ export const afterAgentRun = internalMutation({
       kind = proposed ? "action_needed" : "document_read";
     }
     const sent = await queuePush(ctx, owner, kind, c, null);
-    // A letter sent on Telegram gets its answer there too (Person B's telegram.ts).
+    // A letter sent on Telegram gets its answer there too (telegram.ts).
     if (doc.source === "telegram") {
       await ctx.scheduler.runAfter(0, internal.telegram.notifyDocumentResult, {
         ownerId,

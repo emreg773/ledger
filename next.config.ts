@@ -2,7 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   // The service worker must never be cached, or a fix to push handling
-  // wouldn't reach installed apps (docs/ledger-step3-B.md, Section 6).
+  // wouldn't reach installed apps.
   async headers() {
     return [
       {

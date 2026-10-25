@@ -1,4 +1,4 @@
-// Official contacts for the sender check (brief Section 4). Verified by the team;
+// Official contacts for the sender check. Verified by the team;
 // entries marked TODO: verify are listed but not yet confirmed on the agency's site.
 
 export type OfficialContact = {

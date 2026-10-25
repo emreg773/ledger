@@ -15,7 +15,7 @@ import { logEvent } from "./events";
 import { requireOwnerOf, viewerOwner } from "./access";
 import { SYSTEM_NOTE_PREFIX } from "./shared";
 
-// The action system (Step 2 brief, Track B, Section 3).
+// The action system.
 // The agent proposes; the server decides autonomy from the type, never the agent.
 
 type ActionType = Infer<typeof actionType>;
@@ -24,7 +24,7 @@ type Autonomy = Doc<"actions">["autonomyLevel"];
 const AUTONOMY: Record<ActionType, Autonomy> = {
   pay_bill: "one_tap",
   send_email: "one_tap",
-  send_whatsapp: "one_tap", // Not used: no WhatsApp in Step 2+.
+  send_whatsapp: "one_tap", // Not used: no WhatsApp channel.
   create_document: "auto",
   add_calendar_event: "auto",
   schedule_followup: "auto",
@@ -61,7 +61,7 @@ function describe(action: Pick<Doc<"actions">, "type" | "payload" | "summary">):
   return action.summary;
 }
 
-/** The action, if it belongs to the signed-in owner (Step 3: owner from the session). */
+/** The action, if it belongs to the signed-in owner (the owner comes from the session). */
 async function load(ctx: MutationCtx, actionId: Id<"actions">) {
   return await requireOwnerOf(ctx, await ctx.db.get(actionId));
 }
@@ -86,7 +86,7 @@ async function readFinishedCaseNotices(ctx: MutationCtx, action: Doc<"actions">)
   for (const n of notices) await ctx.db.patch(n._id, { readAt: Date.now() });
 }
 
-// ---------- Contract (shared with Track A) ----------
+// ---------- Public and internal functions ----------
 
 export const propose = internalMutation({
   args: {

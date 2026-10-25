@@ -6,7 +6,7 @@ import { VerificationBadge } from "@/components/verification-badge";
 import { useI18n, type MessageKey } from "@/lib/i18n";
 import type { CaseView, RecentEvent } from "@/lib/contract";
 
-// Live activity (Step 2 brief, Track B, Section 5): the steps Ledger has taken
+// Live activity: the steps Ledger has taken
 // since the owner's last message, built from events. While Ledger works it's an
 // open list; under a finished reply it collapses to "What Ledger did (N steps)".
 

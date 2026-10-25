@@ -1,6 +1,6 @@
 import type { MetadataRoute } from "next";
 
-// PWA manifest (docs/ledger-step3-B.md, Section 6). Installing matters on
+// PWA manifest. Installing matters on
 // iPhone: iOS only allows web push for apps added to the Home Screen.
 export default function manifest(): MetadataRoute.Manifest {
   return {

@@ -6,7 +6,7 @@ import { logEvent } from "./events";
 import type { Extraction } from "./extraction";
 import { findAgency, officialPhone, OFFICIAL_CONTACTS, type OfficialContact } from "./officialContacts";
 
-// verify_sender (brief Section 4). Rule-based, no LLM call: the printed contacts
+// verify_sender. Rule-based, no LLM call: the printed contacts
 // are matched against the official list, and red flags make it suspicious.
 
 export type Verdict = "verified" | "suspicious" | "unverified";

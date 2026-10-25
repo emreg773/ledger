@@ -4,7 +4,7 @@ import type { NotificationView } from "@/convex/notifications";
 import type { PushState, usePush } from "@/lib/push";
 import type { ActionView, CaseView, RecentEvent } from "@/lib/contract";
 
-// Mock data shaped like the Step 2 contract, for the /dev preview page.
+// Mock data shaped like lib/contract.ts, for the /dev preview page.
 // Values follow the fixtures (fixtures/README.md). Not used by the real chat.
 
 const id = <T extends TableNames | "_storage">(s: string) => s as Id<T>;

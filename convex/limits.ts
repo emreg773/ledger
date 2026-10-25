@@ -5,7 +5,7 @@ import type { MutationCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { logEvent } from "./events";
 
-// Abuse limits (Step 3 brief, Section 6). The global daily cap on agent runs is
+// Abuse limits. The global daily cap on agent runs is
 // the kill switch for the Claude bill; LEDGER_DAILY_RUN_LIMIT overrides it.
 
 const DAY = 24 * HOUR;

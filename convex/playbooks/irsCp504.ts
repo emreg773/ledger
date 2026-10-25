@@ -1,6 +1,6 @@
 import { playbookSchema } from "./schema";
 
-// Only the facts the team verified for Step 4 (brief Section 3).
+// Only facts the team verified against the sources below.
 export const irsCp504 = playbookSchema.parse({
   docType: "IRS_CP504",
   title: "IRS notice of intent to levy",

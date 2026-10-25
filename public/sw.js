@@ -1,6 +1,6 @@
 // Ledger service worker: web push only. No offline caching on purpose; a stale
-// cached app is worse than no app during judging (docs/ledger-step3-B.md, 6).
-// Payload from Track A: { title, body, url, tag }.
+// cached app is worse than no app during judging.
+// Payload from the backend (convex/push.ts): { title, body, url, tag }.
 
 self.addEventListener("install", () => self.skipWaiting());
 self.addEventListener("activate", (event) => event.waitUntil(self.clients.claim()));

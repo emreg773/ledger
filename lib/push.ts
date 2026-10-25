@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 
-// Browser side of web push (docs/ledger-step3-B.md, Section 6). Track A sends
+// Browser side of web push. The backend sends
 // every push; this file only registers the service worker and keeps the
 // owner's subscription saved on the server.
 

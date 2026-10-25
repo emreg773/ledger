@@ -21,7 +21,7 @@ import { countdown, formatDate, formatDateTime, formatMoney } from "@/lib/format
 import type { ActionView, OwnerTaskPayload, PayBillPayload, PayBillResult } from "@/lib/contract";
 import { useToday } from "@/lib/use-today";
 
-// Approve cards (Step 2 brief, Track B, Section 4). The server enforces the
+// Approve cards. The server enforces the
 // rules; the card just never offers more than two buttons and disables them
 // the moment one is tapped.
 

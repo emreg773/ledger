@@ -4,7 +4,7 @@ import { useSyncExternalStore } from "react";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 
-// The demo clock in the browser (Step 4 brief, Section 4). The offset comes
+// The demo clock in the browser. The offset comes
 // from clock.get, so every countdown, the notification pinning and the calendar
 // follow the owner's demo date. Relative ages ("5 min ago") keep using real
 // time: they compare against real timestamps.

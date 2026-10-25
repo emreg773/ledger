@@ -20,7 +20,7 @@ import { errorMessage } from "@/lib/errors";
 import { formatDate } from "@/lib/format";
 import { useI18n } from "@/lib/i18n";
 
-// The demo clock (Step 4 brief, Section 4): skip time forward to see reminders
+// The demo clock: skip time forward to see reminders
 // and escalations, then reset. Opened from the app menu.
 
 const isoOf = (d: Date) =>

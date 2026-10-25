@@ -18,11 +18,11 @@ const CASE_TITLES: Record<string, string> = {
   CITY_LICENSE_LATE_NOTICE: "Late business license notice",
 };
 
-// ---------- Case memory (Step 4) ----------
+// ---------- Case memory ----------
 
 /**
  * Letters with the same key belong to one case. Null when a key part is
- * missing: then the letter opens its own case, as before Step 4.
+ * missing: then the letter opens its own case.
  */
 export function caseKeyOf(x: Extraction): string | undefined {
   const all = (...parts: (string | undefined)[]) => (parts.every(Boolean) ? parts.join("|") : undefined);
@@ -102,7 +102,7 @@ export const generateUploadUrl = mutation({
 
 /** Documents for the chat UI, with a viewable URL for each file. */
 export const listForOwner = query({
-  // TODO(step3): ownerId is ignored and goes away once Track B's UI stops sending it.
+  // TODO: ownerId is ignored; remove it once no client sends it.
   args: { ownerId: v.optional(v.id("owners")) },
   handler: async (ctx) => {
     const owner = await viewerOwner(ctx);
@@ -221,7 +221,7 @@ export const saveExtraction = internalMutation({
     }
 
     // 2. A letter about an existing case (same case key, any status), or the
-    // same notice uploaded again (Step 2's match: same type, amount, deadline).
+    // same notice uploaded again (same type, amount and deadline).
     const existing =
       (caseKey
         ? await ctx.db

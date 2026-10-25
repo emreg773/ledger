@@ -27,7 +27,7 @@ type ReadDocumentOutput =
       extraction: Extraction;
     };
 
-// Brief Section 6, verbatim, with {language} filled in per run.
+// The core instructions, with {language} filled in per run.
 function buildInstructions(languageCode: string, todayIso: string) {
   const language = languageName(languageCode);
   return `You are Ledger, a compliance agent for small business owners in the US.
@@ -80,7 +80,7 @@ function glossaryRule(languageCode: string, language: string) {
   The glossary gives Spanish; for other languages, translate the term yourself.`;
 }
 
-// Step 2 workflow (Step 2 brief, Track A, Section 6). The code enforces what it can:
+// The investigation workflow. The code enforces what it can:
 // propose_action refuses pay_bill for suspicious, unverified, already-paid or
 // unaffordable cases, and fixes the amount and account from the case.
 const STEP2_RULES = `Investigating:
@@ -503,7 +503,7 @@ export const recordFailure = internalMutation({
 });
 
 /**
- * Called by Track B's executor after an action reaches a final status (executed,
+ * Called by the action executor (actions.ts) after an action reaches a final status (executed,
  * failed, rejected, or an owner task marked done). Adds a system note to the
  * thread and schedules a short reply in the owner's language.
  */

@@ -1,8 +1,8 @@
 import { ConvexError } from "convex/values";
 import type { T } from "@/lib/i18n";
 
-// Track A's mutations throw ConvexError({ code, ... }) for errors the owner can
-// act on (docs/ledger-step3-B.md, Section 7). Everything else is a bug: log it
+// Backend mutations throw ConvexError({ code, ... }) for errors the owner can
+// act on. Everything else is a bug: log it
 // and show a generic line, never the raw message.
 
 export type ErrorCode =

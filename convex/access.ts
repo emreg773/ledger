@@ -3,7 +3,7 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import type { QueryCtx, MutationCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 
-// Ownership checks (Step 3 brief, Section 4). Every public function gets the
+// Ownership checks. Every public function gets the
 // owner from the session, never from its arguments.
 
 /** The signed-in user's owner, or null when signed out or not onboarded. For queries. */

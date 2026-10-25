@@ -31,7 +31,7 @@ export const listThreadMessages = query({
  * new one. Returns the conversation's threadId.
  */
 export const sendMessage = mutation({
-  // TODO(step3): ownerId is ignored and goes away once Track B's UI stops sending it.
+  // TODO: ownerId is ignored; remove it once no client sends it.
   args: { text: v.string(), threadId: v.optional(v.string()), ownerId: v.optional(v.id("owners")) },
   handler: async (ctx, { text, threadId: openThread }) => {
     const owner = await requireOwner(ctx);

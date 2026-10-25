@@ -5,7 +5,7 @@ import { viewerOwner } from "./access";
 import { complianceEvents } from "./calendarCompliance";
 import { GENERAL_DATES } from "./generalDates";
 
-// Upcoming deadlines for the home calendar (Step 4 brief, Section 5). Three
+// Upcoming deadlines for the home calendar. Three
 // sources, one list: open cases with a deadline, general form due dates
 // (generalDates.ts), and compliance events from the owner's Google Calendar
 // (calendarCompliance.ts). Cases and calendar events get Telegram nudges
@@ -64,7 +64,7 @@ async function collectItems(
   return items.sort((a, b) => a.date.localeCompare(b.date) || a.title.localeCompare(b.title));
 }
 
-/** The signed-in owner's deadlines between two ISO dates (Person B's Upcoming panel uses it too). */
+/** The signed-in owner's deadlines between two ISO dates (the home calendar uses it). */
 export const upcoming = query({
   args: { fromIso: v.string(), toIso: v.string() },
   handler: async (ctx, { fromIso, toIso }): Promise<UpcomingItem[]> => {
