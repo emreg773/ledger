@@ -96,7 +96,7 @@ const usd = (n: number) => n.toLocaleString("en-US", { style: "currency", curren
 function itemName(item: UpcomingItem, lang: Lang): string {
   if (item.source === "general") {
     const f = item.form;
-    return { en: `Form ${f}`, es: `Formulario ${f}`, zh: `${f} 表格`, vi: `Mẫu ${f}`, ko: `${f} 양식` }[lang];
+    return { en: `Form ${f}`, es: `Formulario ${f}`, zh: `${f} 表格`, vi: `Mẫu ${f}`, ko: `${f} 양식`, tr: `Form ${f}` }[lang];
   }
   if (item.source === "calendar") return item.title;
   const code = item.docType?.startsWith("IRS_") ? item.docType.slice(4) : undefined;
@@ -107,6 +107,7 @@ function itemName(item: UpcomingItem, lang: Lang): string {
       zh: "您的卫生检查",
       vi: "đợt kiểm tra vệ sinh của bạn",
       ko: "위생 점검",
+      tr: "sağlık denetiminiz",
     }[lang];
   }
   return code
@@ -116,8 +117,9 @@ function itemName(item: UpcomingItem, lang: Lang): string {
         zh: `您的 IRS 通知 (${code})`,
         vi: `thông báo IRS (${code}) của bạn`,
         ko: `IRS 통지서(${code})`,
+        tr: `IRS bildiriminiz (${code})`,
       }[lang]
-    : { en: "your letter", es: "su carta", zh: "您的来信", vi: "thư của bạn", ko: "편지" }[lang];
+    : { en: "your letter", es: "su carta", zh: "您的来信", vi: "thư của bạn", ko: "편지", tr: "mektubunuz" }[lang];
 }
 
 /**
@@ -129,10 +131,10 @@ function whenLine(name: string, days: number, iso: string, lang: Lang): string {
   const date = shortDate(iso, lang);
   const n = Math.abs(days);
   if (days === 0) {
-    return { en: `${name} is due today`, es: `${name} vence hoy`, zh: `${name}今天到期`, vi: `${name} đến hạn hôm nay`, ko: `${name} 마감이 오늘입니다` }[lang];
+    return { en: `${name} is due today`, es: `${name} vence hoy`, zh: `${name}今天到期`, vi: `${name} đến hạn hôm nay`, ko: `${name} 마감이 오늘입니다`, tr: `${name}: son gün bugün` }[lang];
   }
   if (days === 1) {
-    return { en: `${name} is due tomorrow`, es: `${name} vence mañana`, zh: `${name}明天到期`, vi: `${name} đến hạn ngày mai`, ko: `${name} 마감이 내일입니다` }[lang];
+    return { en: `${name} is due tomorrow`, es: `${name} vence mañana`, zh: `${name}明天到期`, vi: `${name} đến hạn ngày mai`, ko: `${name} 마감이 내일입니다`, tr: `${name}: son gün yarın` }[lang];
   }
   if (days > 1 && days <= 7) {
     return {
@@ -141,6 +143,7 @@ function whenLine(name: string, days: number, iso: string, lang: Lang): string {
       zh: `${name}将在 ${n} 天后到期`,
       vi: `${name} đến hạn sau ${n} ngày`,
       ko: `${name} 마감이 ${n}일 남았습니다`,
+      tr: `${name}: son güne ${n} gün kaldı`,
     }[lang];
   }
   if (days < 0) {
@@ -150,9 +153,10 @@ function whenLine(name: string, days: number, iso: string, lang: Lang): string {
       zh: `${name}已逾期 ${n} 天`,
       vi: `${name} đã quá hạn ${n} ngày`,
       ko: `${name} 마감이 ${n}일 지났습니다`,
+      tr: `${name}: son gün ${n} gün önce geçti`,
     }[lang];
   }
-  return { en: `${name} is due ${date}`, es: `${name} vence el ${date}`, zh: `${name}${date}到期`, vi: `${name} đến hạn ${date}`, ko: `${name} 마감은 ${date}입니다` }[lang];
+  return { en: `${name} is due ${date}`, es: `${name} vence el ${date}`, zh: `${name}${date}到期`, vi: `${name} đến hạn ${date}`, ko: `${name} 마감은 ${date}입니다`, tr: `${name}: son gün ${date}` }[lang];
 }
 
 function reminderLine(item: UpcomingItem, todayIso: string, lang: Lang): string {
@@ -197,8 +201,8 @@ export const sendDue = internalMutation({
 
     const lang = ownerLang(owner);
     const lines = due.map((i) => reminderLine(i, todayIso, lang));
-    const label = { en: "Reminder", es: "Recordatorio", zh: "提醒", vi: "Lời nhắc", ko: "알림" }[lang];
-    const labelMany = { en: "Reminders", es: "Recordatorios", zh: "提醒", vi: "Các lời nhắc", ko: "알림" }[lang];
+    const label = { en: "Reminder", es: "Recordatorio", zh: "提醒", vi: "Lời nhắc", ko: "알림", tr: "Hatırlatma" }[lang];
+    const labelMany = { en: "Reminders", es: "Recordatorios", zh: "提醒", vi: "Các lời nhắc", ko: "알림", tr: "Hatırlatmalar" }[lang];
     const body = lines.length === 1 ? `${label}: ${lines[0]}.` : `${labelMany}: ${lines.join(" · ")}.`;
     const enLines = due.map((i) => reminderLine(i, todayIso, "en"));
     const single: Doc<"cases"> | null =

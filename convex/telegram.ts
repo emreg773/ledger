@@ -30,7 +30,7 @@ import { ownerLang, type Lang } from "./push";
 const API = "https://api.telegram.org";
 const LINK_TTL_MS = 60 * 60_000;
 const MAX_BYTES = 10 * 1024 * 1024;
-const LANGS: Lang[] = ["en", "es", "zh", "vi", "ko"];
+const LANGS: Lang[] = ["en", "es", "zh", "vi", "ko", "tr"];
 
 const site = () => process.env.SITE_URL ?? "";
 const token = () => {
@@ -49,6 +49,7 @@ const REPLIES = {
     zh: "已连接 Ledger。请发送任何政府信件的照片给我。\n\n提示：以文件形式发送会比照片更清晰。",
     vi: "Đã kết nối với Ledger. Hãy gửi cho tôi ảnh của bất kỳ thư nào từ cơ quan chính phủ.\n\nMẹo: gửi dưới dạng tệp sẽ rõ nét hơn gửi ảnh.",
     ko: "Ledger에 연결되었습니다. 정부 기관에서 온 서류 사진을 보내 주세요.\n\n팁: 사진 대신 파일로 보내면 더 선명합니다.",
+    tr: "Ledger'a bağlandı. Devletten gelen herhangi bir mektubun fotoğrafını gönderin.\n\nİpucu: dosya olarak gönderirseniz fotoğraftan daha net olur.",
   },
   badCode: {
     en: "This link has expired. Open Ledger and tap Connect Telegram again.",
@@ -56,6 +57,7 @@ const REPLIES = {
     zh: "此链接已过期。请打开 Ledger，再次点击“连接 Telegram”。",
     vi: "Liên kết này đã hết hạn. Hãy mở Ledger và nhấn Kết nối Telegram lại.",
     ko: "이 링크는 만료되었습니다. Ledger를 열고 텔레그램 연결을 다시 눌러 주세요.",
+    tr: "Bu linkin süresi dolmuş. Ledger'ı açıp Telegram'ı bağla'ya yeniden dokunun.",
   },
   unlinked: {
     en: "Open Ledger and tap Connect Telegram first: {site}",
@@ -63,6 +65,7 @@ const REPLIES = {
     zh: "请先打开 Ledger 并点击“连接 Telegram”：{site}",
     vi: "Trước tiên, hãy mở Ledger và nhấn Kết nối Telegram: {site}",
     ko: "먼저 Ledger를 열고 텔레그램 연결을 눌러 주세요: {site}",
+    tr: "Önce Ledger'ı açıp Telegram'ı bağla'ya dokunun: {site}",
   },
   reading: {
     en: "Got it. I'm reading it now…",
@@ -70,6 +73,7 @@ const REPLIES = {
     zh: "收到了，我正在阅读…",
     vi: "Đã nhận. Tôi đang đọc…",
     ko: "받았습니다. 지금 읽고 있어요…",
+    tr: "Aldım. Şimdi okuyorum…",
   },
   unsupported: {
     en: "I can read photos and PDFs. Please send the letter as a photo, or as a PDF or image file.",
@@ -77,6 +81,7 @@ const REPLIES = {
     zh: "我可以读取照片和 PDF。请以照片、PDF 或图片文件的形式发送信件。",
     vi: "Tôi đọc được ảnh và PDF. Hãy gửi thư dưới dạng ảnh, hoặc tệp PDF hay tệp ảnh.",
     ko: "사진과 PDF를 읽을 수 있습니다. 서류를 사진이나 PDF, 이미지 파일로 보내 주세요.",
+    tr: "Fotoğraf ve PDF okuyabiliyorum. Mektubu fotoğraf olarak ya da PDF veya resim dosyası olarak gönderin.",
   },
   tooLarge: {
     en: "That file is over 10 MB. Please send a smaller photo or PDF.",
@@ -84,6 +89,7 @@ const REPLIES = {
     zh: "该文件超过 10 MB。请发送较小的照片或 PDF。",
     vi: "Tệp này lớn hơn 10 MB. Hãy gửi ảnh hoặc PDF nhỏ hơn.",
     ko: "파일이 10MB를 넘습니다. 더 작은 사진이나 PDF를 보내 주세요.",
+    tr: "Bu dosya 10 MB'tan büyük. Daha küçük bir fotoğraf ya da PDF gönderin.",
   },
   busy: {
     en: "Ledger is busy right now. Please send it again in a little while.",
@@ -91,6 +97,7 @@ const REPLIES = {
     zh: "Ledger 现在有点忙，请稍后再发送。",
     vi: "Ledger đang bận. Hãy gửi lại sau ít phút.",
     ko: "지금 Ledger가 바쁩니다. 잠시 후 다시 보내 주세요.",
+    tr: "Ledger şu an meşgul. Lütfen biraz sonra tekrar gönderin.",
   },
   failed: {
     en: "I couldn't get that file. Please try sending it again.",
@@ -98,6 +105,7 @@ const REPLIES = {
     zh: "我没能接收这个文件，请重新发送。",
     vi: "Tôi không nhận được tệp đó. Hãy thử gửi lại.",
     ko: "파일을 받지 못했습니다. 다시 보내 주세요.",
+    tr: "Dosyayı alamadım. Lütfen tekrar göndermeyi deneyin.",
   },
   other: {
     en: "To chat with Ledger, open the app: {site}\nTo send a letter, send a photo or a file here.",
@@ -105,6 +113,7 @@ const REPLIES = {
     zh: "如需与 Ledger 对话，请打开应用：{site}\n如需发送信件，请在这里发送照片或文件。",
     vi: "Để trò chuyện với Ledger, hãy mở ứng dụng: {site}\nĐể gửi thư, hãy gửi ảnh hoặc tệp tại đây.",
     ko: "Ledger와 대화하려면 앱을 여세요: {site}\n서류를 보내려면 여기로 사진이나 파일을 보내 주세요.",
+    tr: "Ledger ile konuşmak için uygulamayı açın: {site}\nMektup göndermek için buraya fotoğraf ya da dosya gönderin.",
   },
   disconnected: {
     en: "This chat is no longer connected to Ledger.",
@@ -112,6 +121,7 @@ const REPLIES = {
     zh: "此聊天已与 Ledger 断开连接。",
     vi: "Cuộc trò chuyện này không còn kết nối với Ledger.",
     ko: "이 채팅은 더 이상 Ledger에 연결되어 있지 않습니다.",
+    tr: "Bu sohbet artık Ledger'a bağlı değil.",
   },
 } satisfies Record<string, Record<Lang, string>>;
 

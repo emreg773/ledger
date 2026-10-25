@@ -7,6 +7,7 @@ const LOCALES: Record<string, string> = {
   zh: "zh-CN",
   vi: "vi-VN",
   ko: "ko-KR",
+  tr: "tr-TR",
 };
 
 export function localeFor(language: string): string {
