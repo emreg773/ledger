@@ -21,7 +21,9 @@ import { cn } from "@/lib/utils";
 
 // The home screen, shown until the owner sends something: recent
 // notifications on the left, the deadline calendar and shortcuts on the right.
-// On a phone it stacks: calendar, shortcuts, then notifications.
+// On a desktop it fits the screen: the notification list scrolls inside its
+// card and nothing else does. On a phone it stacks (calendar, shortcuts,
+// notifications) and the page scrolls.
 
 type Docs = (Doc<"documents"> & { url: string | null })[];
 
@@ -56,35 +58,36 @@ export function Home({
   const casesById = new Map(cases.map((c) => [c._id as string, c]));
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-4 pt-6 pb-4 lg:px-6">
-      <div className="mb-5">
+    <div className="mx-auto flex w-full max-w-6xl flex-col px-4 pt-6 pb-4 lg:h-full lg:px-6 lg:pt-4 lg:pb-3">
+      <div className="mb-5 lg:mb-3">
         <p className="font-mono text-xs tracking-wide text-muted-foreground uppercase">
           {today ? new Intl.DateTimeFormat(localeFor(language), { weekday: "long", day: "numeric", month: "long" }).format(today) : " "}
         </p>
-        <h1 className="font-display text-4xl leading-tight sm:text-5xl">
+        <h1 className="font-display text-4xl leading-tight sm:text-5xl lg:text-4xl">
           {t("home.greeting", { name: owner.name.split(" ")[0] })}
         </h1>
         {documents.length === 0 && (
-          <p className="mt-2 max-w-xl text-sm text-muted-foreground">{t("home.firstTime")}</p>
+          <p className="mt-2 max-w-xl text-sm text-muted-foreground lg:hidden">{t("home.firstTime")}</p>
         )}
       </div>
 
-      <NotificationBanner push={push} />
+      <div className="grid grid-cols-1 gap-4 lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="flex min-w-0 flex-col gap-3 lg:min-h-0">
+          <NotificationBanner push={push} />
+          <section
+            className="ledger-card flex max-h-[70dvh] min-h-80 min-w-0 flex-col lg:max-h-none lg:min-h-0 lg:flex-1"
+            aria-label={t("notif.title")}
+          >
+            <NotificationList
+              title={<h2 className="font-display text-2xl leading-none">{t("home.recent")}</h2>}
+              previewItems={preview?.notifications}
+            />
+          </section>
+        </div>
 
-      <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_380px] lg:items-start">
-        <section
-          className="ledger-card flex max-h-[70dvh] min-h-80 min-w-0 flex-col lg:max-h-[calc(100dvh-15rem)]"
-          aria-label={t("notif.title")}
-        >
-          <NotificationList
-            title={<h2 className="font-display text-2xl leading-none">{t("home.recent")}</h2>}
-            previewItems={preview?.notifications}
-          />
-        </section>
-
-        <div className="order-first min-w-0 space-y-4 lg:order-none">
+        <div className="order-first flex min-w-0 flex-col gap-4 lg:order-none lg:min-h-0 lg:gap-3">
           <DeadlineCalendar cases={cases} />
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid shrink-0 grid-cols-2 gap-3 lg:gap-2">
             <Tile icon={Camera} label="home.upload" hint="home.uploadHint" primary onClick={startUpload} />
             <Tile icon={FileText} label="home.files" count={documents.length} onClick={() => setSheet("files")} />
             <Tile icon={ListChecks} label="home.tasks" count={openTasks.length} onClick={() => setSheet("tasks")} />
@@ -150,21 +153,23 @@ function Tile({
       type="button"
       onClick={onClick}
       className={cn(
-        "group flex min-h-24 flex-col justify-between rounded-lg border-2 p-3 text-left transition-transform active:translate-y-px",
+        "group flex min-h-24 flex-col justify-between rounded-lg border-2 p-3 text-left transition-transform active:translate-y-px lg:min-h-0 lg:flex-row lg:items-center lg:gap-2 lg:px-3 lg:py-2.5",
         primary
           ? "border-foreground bg-foreground text-background"
           : "border-foreground/80 bg-card hover:bg-gold/30",
       )}
     >
-      <div className="flex items-start justify-between">
-        <Icon className="size-5" />
+      <div className="flex items-start justify-between lg:contents">
+        <Icon className="size-5 shrink-0 lg:size-4" />
         {count !== undefined && (
-          <span className="font-mono text-2xl leading-none tabular-nums">{count}</span>
+          <span className="font-mono text-2xl leading-none tabular-nums lg:order-last lg:ml-auto lg:text-base">{count}</span>
         )}
       </div>
-      <div>
-        <div className="text-sm font-semibold">{t(label)}</div>
-        {hint && <div className={cn("text-xs", primary ? "text-background/70" : "text-muted-foreground")}>{t(hint)}</div>}
+      <div className="min-w-0">
+        <div className="text-sm font-semibold lg:truncate">{t(label)}</div>
+        {hint && (
+          <div className={cn("text-xs lg:hidden", primary ? "text-background/70" : "text-muted-foreground")}>{t(hint)}</div>
+        )}
       </div>
     </button>
   );

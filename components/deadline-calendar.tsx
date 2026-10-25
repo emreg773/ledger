@@ -61,7 +61,7 @@ export function DeadlineCalendar({ cases }: { cases: CaseRow[] }) {
   const overdue = open.filter((c) => c.deadline! < todayIso).length;
 
   return (
-    <section className="ledger-card p-4" aria-label={t("home.calendar")}>
+    <section className="ledger-card p-4 lg:flex lg:min-h-0 lg:flex-1 lg:flex-col lg:p-3.5" aria-label={t("home.calendar")}>
       <div className="flex items-center justify-between">
         <h2 className="font-display text-2xl leading-none first-letter:uppercase">{monthTitle}</h2>
         <div className="flex gap-1">
@@ -74,7 +74,7 @@ export function DeadlineCalendar({ cases }: { cases: CaseRow[] }) {
         </div>
       </div>
 
-      <div className="mt-3 grid grid-cols-7 border-t-2 border-double border-foreground/70 pt-2 text-center text-[11px] font-medium text-muted-foreground uppercase">
+      <div className="mt-3 grid grid-cols-7 border-t-2 border-double border-foreground/70 pt-2 text-center lg:mt-2 lg:pt-1.5 text-[11px] font-medium text-muted-foreground uppercase">
         {weekdays.map((d, i) => (
           <div key={i}>{d}</div>
         ))}
@@ -94,7 +94,7 @@ export function DeadlineCalendar({ cases }: { cases: CaseRow[] }) {
               aria-pressed={selected === key}
               aria-label={due ? t("home.dueOn", { date: key, count: due.length }) : undefined}
               className={cn(
-                "relative mx-auto flex size-9 items-center justify-center rounded-md font-mono text-sm tabular-nums",
+                "relative mx-auto flex size-9 items-center justify-center rounded-md font-mono text-sm tabular-nums lg:size-8 [@media(min-width:64rem)_and_(max-height:46rem)]:size-7",
                 key === todayIso && "ring-2 ring-foreground",
                 due && !isPast && "bg-gold font-semibold text-gold-foreground",
                 due && isPast && "bg-destructive font-semibold text-white",
@@ -108,7 +108,7 @@ export function DeadlineCalendar({ cases }: { cases: CaseRow[] }) {
         })}
       </div>
 
-      <div className="mt-3 border-t pt-3">
+      <div className="mt-3 border-t pt-3 lg:mt-2 lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:pt-2">
         <h3 className="text-xs font-medium text-muted-foreground uppercase">
           {selected ? t("home.dueThatDay") : overdue > 0 ? t("home.upcomingOverdue", { count: overdue }) : t("home.upcoming")}
         </h3>

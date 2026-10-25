@@ -306,7 +306,7 @@ function Composer({ onSent }: { onSent: () => void }) {
 
   return (
     <footer className="bg-background px-3 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
-     <div className="mx-auto w-full max-w-2xl">
+     <div className="mx-auto w-full max-w-3xl">
       {error && <p className="px-1 pb-2 text-xs text-destructive">{error}</p>}
       <form
         className="ledger-card flex items-end gap-1.5 p-1.5"

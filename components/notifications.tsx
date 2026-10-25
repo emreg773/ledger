@@ -69,13 +69,16 @@ export function NotificationBanner({ push }: { push: ReturnType<typeof usePush> 
           <p className="text-muted-foreground">{t("push.deniedBody")}</p>
         </div>
       ) : (
-        <div className="space-y-2">
-          <div className="flex items-center gap-2 font-medium">
-            <Bell className="size-4" /> {t("push.bannerTitle")}
+        <div className="space-y-2 lg:flex lg:items-center lg:gap-4 lg:space-y-0">
+          <div className="min-w-0 lg:flex-1">
+            <div className="flex items-center gap-2 font-medium">
+              <Bell className="size-4" /> {t("push.bannerTitle")}
+            </div>
+            <p className="text-muted-foreground lg:truncate">{t("push.bannerBody")}</p>
+            {failed && <p className="text-destructive">{t("push.failed")}</p>}
           </div>
-          <p className="text-muted-foreground">{t("push.bannerBody")}</p>
-          {failed && <p className="text-destructive">{t("push.failed")}</p>}
           <Button
+            className="lg:shrink-0"
             disabled={push.busy}
             onClick={() => {
               setFailed(false);

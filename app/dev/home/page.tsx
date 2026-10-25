@@ -32,6 +32,8 @@ export default function DevHomePreview() {
           </button>
         ))}
       </div>
+      {/* The real page has a header and the chat bar around this; reserve the same space. */}
+      <main className="overflow-y-auto lg:h-[calc(100dvh-11rem)]" data-preview-main>
       <Home
         owner={{ ...mockOwner, preferredLanguage: language }}
         cases={Object.values(mockCases)}
@@ -44,6 +46,7 @@ export default function DevHomePreview() {
           notifications: mockNotifications,
         }}
       />
+      </main>
     </I18nProvider>
   );
 }
