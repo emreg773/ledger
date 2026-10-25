@@ -11,7 +11,7 @@ import { checkAgentRun, checkOwnerLimit } from "./limits";
 import { SUPPORTED_TYPES } from "./extraction";
 
 // Channel-agnostic document intake (brief Section 9).
-// Every channel calls ingest(): web upload now, Gmail in Step 4, WhatsApp in Step 5.
+// Every channel calls ingest(): web upload and Telegram.
 
 const MAX_BYTES = 10 * 1024 * 1024;
 

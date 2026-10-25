@@ -370,67 +370,6 @@ export async function queuePush(
 }
 
 /**
- * An email Ledger sorted as government (with no attachment to read; those
- * notify once Ledger has read them) or suspicious (gmail.ts saveSync). Only the
- * sender's domain goes in the text, never the subject or the body.
- */
-export const notifyEmail = internalMutation({
-  args: {
-    ownerId: v.id("owners"),
-    kind: v.union(v.literal("email_government"), v.literal("email_suspicious")),
-    fromDomain: v.string(),
-  },
-  handler: async (ctx, { ownerId, kind, fromDomain }) => {
-    const owner = await ctx.db.get(ownerId);
-    if (!owner) return null;
-    const lang = ownerLang(owner);
-    const gov = kind === "email_government";
-    const titles = gov
-      ? { en: "Email from an agency", es: "Correo de una agencia", zh: "政府机构来信", vi: "Email từ cơ quan", ko: "기관에서 온 이메일", tr: "Kurumdan e-posta" }
-      : { en: "Suspicious email", es: "Correo sospechoso", zh: "可疑邮件", vi: "Email đáng ngờ", ko: "의심스러운 이메일", tr: "Şüpheli e-posta" };
-    const bodies = gov
-      ? {
-          en: `An email from ${fromDomain} is at the top of your inbox in Ledger.`,
-          es: `Un correo de ${fromDomain} está primero en su bandeja de Ledger.`,
-          zh: `来自 ${fromDomain} 的邮件已排在您 Ledger 收件箱的最前面。`,
-          vi: `Một email từ ${fromDomain} đang ở đầu hộp thư của bạn trong Ledger.`,
-          ko: `${fromDomain}에서 온 이메일이 Ledger 받은편지함 맨 위에 있습니다.`,
-          tr: `${fromDomain} adresinden gelen bir e-posta Ledger'daki gelen kutunuzun en üstünde.`,
-        }
-      : {
-          en: `An email from ${fromDomain} pretends to be from an agency. Don't pay or click its links.`,
-          es: `Un correo de ${fromDomain} se hace pasar por una agencia. No pague ni abra sus enlaces.`,
-          zh: `来自 ${fromDomain} 的邮件冒充政府机构。不要付款，也不要点击其中的链接。`,
-          vi: `Một email từ ${fromDomain} giả danh cơ quan chính phủ. Đừng thanh toán hay bấm vào các liên kết trong đó.`,
-          ko: `${fromDomain}에서 온 이메일이 기관을 사칭하고 있습니다. 돈을 내거나 링크를 누르지 마세요.`,
-          tr: `${fromDomain} adresinden gelen bir e-posta kendini kurum gibi gösteriyor. Ödeme yapmayın, linklerine tıklamayın.`,
-        };
-    const summary = gov ? `Email from ${fromDomain} (government)` : `Suspicious email from ${fromDomain}`;
-    await ctx.db.insert("notifications", {
-      ownerId,
-      kind,
-      category: gov ? "letter" : "alert",
-      title: titles[lang],
-      body: bodies[lang],
-      searchText: [titles[lang], bodies[lang], titles.en, summary, "email gmail"].join(" "),
-      createdAt: Date.now(),
-    });
-    const hasDevice = await ctx.db
-      .query("pushSubscriptions")
-      .withIndex("by_owner", (q) => q.eq("ownerId", ownerId))
-      .first();
-    if (hasDevice) {
-      await ctx.scheduler.runAfter(0, internal.pushNode.send, {
-        ownerId,
-        payload: { title: "Ledger", body: bodies[lang], url: "/?tab=email", tag: `ledger-${kind}` },
-        summary,
-      });
-    }
-    return null;
-  },
-});
-
-/**
  * Called at the end of agent.respond (Section 7 triggers):
  * - a document run: action_needed if it proposed actions, document_failed if
  *   reading failed, else document_read

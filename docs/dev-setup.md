@@ -4,13 +4,13 @@ Ledger is one Convex project, `ledger` (team `emreg`). Convex gives every projec
 
 | | Deployment | Used by |
 |---|---|---|
-| **Production** (shared) | `prod:majestic-wolverine-921` | Vercel. Every merge to `main` runs `npx convex deploy` |
+| **Production** (shared) | `prod:majestic-wolverine-921` | Vercel. `npx vercel deploy --prod` from `main` runs `npx convex deploy` |
 | **Emre's dev** | `dev:fast-fish-37` (https://fast-fish-37.convex.cloud) | Emre's `npx convex dev` and `npm run dev` |
-| **Mert's dev** | created the first time Mert runs `npx convex dev` | Mert's `npx convex dev` and `npm run dev` |
+| **Mert's dev** | `dev:utmost-mosquito-685` (https://utmost-mosquito-685.convex.cloud) | Mert's `npx convex dev` and `npm run dev` |
 
 Your dev deployment only runs **your** working tree, so the two of you never overwrite each other's functions. Your data, uploads and test accounts are separate too. Code meets in `main`, and from there in production.
 
-`main` is production once Vercel is connected. Test on your own dev deployment before merging.
+Merging to `main` doesn't deploy; production is deployed by hand (README, "Deploy"). Test on your own dev deployment first: `npx convex dev --start "npm run dev"` runs your backend and the site at http://localhost:3000 together.
 
 ## Environment variables
 
@@ -39,7 +39,7 @@ Every team member can see and change these values in the dashboard.
 2. Add one **authorized redirect URI per deployment**, in the form `https://<deployment>.convex.site/api/auth/callback/google`:
    - `https://fast-fish-37.convex.site/api/auth/callback/google` (Emre's dev)
    - `https://majestic-wolverine-921.convex.site/api/auth/callback/google` (production)
-   - `https://<mert's deployment>.convex.site/api/auth/callback/google` (Mert's dev, once it exists)
+   - `https://utmost-mosquito-685.convex.site/api/auth/callback/google` (Mert's dev)
 3. Set `AUTH_GOOGLE_ID` and `AUTH_GOOGLE_SECRET` on every deployment, or as project defaults.
 4. On the **OAuth consent screen**, publish the app ("In production"). In "Testing", only listed test users can sign in. The basic scopes (openid, email, profile) don't need Google's verification.
 
