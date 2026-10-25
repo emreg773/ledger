@@ -37,6 +37,8 @@ const ingestArgs = {
   source: documentSource,
   sourceRef: v.optional(v.string()),
   hint: v.optional(v.string()), // e.g. a Telegram caption
+  // Pages 2+ of the same document, in order (e.g. a Telegram album).
+  extraPages: v.optional(v.array(v.object({ storageId: v.id("_storage"), mimeType: v.string() }))),
 };
 
 async function ingest(

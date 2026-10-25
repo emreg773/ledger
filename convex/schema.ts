@@ -290,6 +290,19 @@ export default defineSchema({
     createdAt: v.number(),
   }).index("by_code", ["code"]),
 
+  // Photos or files sent together as one Telegram album, waiting a few seconds
+  // for the rest of the album (telegram.ts). Deleted once read as one document.
+  telegramAlbumParts: defineTable({
+    groupId: v.string(), // Telegram's media_group_id
+    ownerId: v.id("owners"),
+    chatId: v.string(),
+    messageId: v.number(), // album order
+    storageId: v.id("_storage"),
+    mimeType: v.string(),
+    caption: v.optional(v.string()),
+    addedAt: v.number(),
+  }).index("by_group", ["groupId"]),
+
   // Step 4: nudges already sent, so none repeats (nudges.ts). Keys:
   // "nudge|day|<isoDate>", "nudge|case|<caseId>|<level>", "nudge|unopened|<documentId>".
   sentLog: defineTable({

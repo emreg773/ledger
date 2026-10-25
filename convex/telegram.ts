@@ -7,6 +7,7 @@ import {
   internalQuery,
   mutation,
   query,
+  type ActionCtx,
   type QueryCtx,
 } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
@@ -90,6 +91,14 @@ const REPLIES = {
     vi: "Tệp này lớn hơn 10 MB. Hãy gửi ảnh hoặc PDF nhỏ hơn.",
     ko: "파일이 10MB를 넘습니다. 더 작은 사진이나 PDF를 보내 주세요.",
     tr: "Bu dosya 10 MB'tan büyük. Daha küçük bir fotoğraf ya da PDF gönderin.",
+  },
+  tooManyPages: {
+    en: "I can read up to 10 pages of one letter at once, 25 MB in all. Please send fewer pages.",
+    es: "Puedo leer hasta 10 páginas de una carta a la vez, 25 MB en total. Envíe menos páginas.",
+    zh: "一封信我一次最多可以读取 10 页，总共不超过 25 MB。请少发几页。",
+    vi: "Tôi đọc được tối đa 10 trang của một lá thư mỗi lần, tổng cộng 25 MB. Hãy gửi ít trang hơn.",
+    ko: "한 서류는 한 번에 최대 10페이지, 총 25MB까지 읽을 수 있습니다. 페이지 수를 줄여서 보내 주세요.",
+    tr: "Bir mektubun en fazla 10 sayfasını, toplam 25 MB'ı bir kerede okuyabilirim. Lütfen daha az sayfa gönderin.",
   },
   busy: {
     en: "Ledger is busy right now. Please send it again in a little while.",
@@ -251,7 +260,40 @@ type TgMessage = {
   caption?: string;
   photo?: TgFile[]; // sizes, smallest first
   document?: TgFile;
+  media_group_id?: string; // set on each message of an album
 };
+
+// An album arrives as one message per photo or file. Its parts wait until none
+// has arrived for this long, then are read as pages of one letter.
+const ALBUM_WAIT_MS = 3_000;
+
+async function download(ctx: ActionCtx, file: TgFile & { mimeType: string }) {
+  const info = await fetch(`${API}/bot${token()}/getFile?file_id=${encodeURIComponent(file.file_id)}`);
+  const path = info.ok ? ((await info.json()) as { result?: { file_path?: string } }).result?.file_path : undefined;
+  if (!path) throw new Error(`getFile failed (${info.status})`);
+  const res = await fetch(`${API}/file/bot${token()}/${path}`);
+  if (!res.ok) throw new Error(`download failed (${res.status})`);
+  return await ctx.storage.store(new Blob([await res.arrayBuffer()], { type: file.mimeType }));
+}
+
+/** The reply for a file Ledger couldn't take. */
+function failureReply(e: unknown): ReplyKey {
+  const code = e instanceof ConvexError ? (e.data as { code?: string }).code : undefined;
+  console.warn("Telegram document not ingested", code ?? e);
+  switch (code) {
+    case "file_too_large":
+      return "tooLarge";
+    case "too_many_pages":
+    case "files_too_large":
+      return "tooManyPages";
+    case "unsupported_file":
+      return "unsupported";
+    case "rate_limited":
+      return "busy";
+    default:
+      return "failed";
+  }
+}
 
 export const handleMessage = internalAction({
   args: { message: v.any() },
@@ -296,12 +338,20 @@ export const handleMessage = internalAction({
     }
 
     try {
-      const info = await fetch(`${API}/bot${token()}/getFile?file_id=${encodeURIComponent(file.file_id)}`);
-      const path = info.ok ? ((await info.json()) as { result?: { file_path?: string } }).result?.file_path : undefined;
-      if (!path) throw new Error(`getFile failed (${info.status})`);
-      const download = await fetch(`${API}/file/bot${token()}/${path}`);
-      if (!download.ok) throw new Error(`download failed (${download.status})`);
-      const storageId = await ctx.storage.store(new Blob([await download.arrayBuffer()], { type: file.mimeType }));
+      const storageId = await download(ctx, file);
+      if (m.media_group_id) {
+        // Part of an album: flushAlbum reads the whole album as one letter.
+        await ctx.runMutation(internal.telegram.addAlbumPart, {
+          groupId: m.media_group_id,
+          ownerId: owner._id,
+          chatId,
+          messageId: m.message_id,
+          storageId,
+          mimeType: file.mimeType,
+          caption: m.caption,
+        });
+        return null;
+      }
       await send(chatId, reply("reading", lang));
       await ctx.runMutation(internal.intake.ingestDocument, {
         ownerId: owner._id,
@@ -312,15 +362,79 @@ export const handleMessage = internalAction({
         hint: m.caption, // a hint only; Ledger classifies the letter itself
       });
     } catch (e) {
-      const code = e instanceof ConvexError ? (e.data as { code?: string }).code : undefined;
-      console.warn("Telegram document not ingested", code ?? e);
-      await send(
-        chatId,
-        reply(
-          code === "file_too_large" ? "tooLarge" : code === "unsupported_file" ? "unsupported" : code === "rate_limited" ? "busy" : "failed",
-          lang,
-        ),
-      );
+      await send(chatId, reply(failureReply(e), lang));
+    }
+    return null;
+  },
+});
+
+/** Saves one album part. The first part schedules flushAlbum. */
+export const addAlbumPart = internalMutation({
+  args: {
+    groupId: v.string(),
+    ownerId: v.id("owners"),
+    chatId: v.string(),
+    messageId: v.number(),
+    storageId: v.id("_storage"),
+    mimeType: v.string(),
+    caption: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const first = !(await ctx.db
+      .query("telegramAlbumParts")
+      .withIndex("by_group", (q) => q.eq("groupId", args.groupId))
+      .first());
+    await ctx.db.insert("telegramAlbumParts", { ...args, addedAt: Date.now() });
+    if (first) await ctx.scheduler.runAfter(ALBUM_WAIT_MS, internal.telegram.flushAlbum, { groupId: args.groupId });
+    return null;
+  },
+});
+
+/**
+ * Removes and returns the album's parts in album order, once none has arrived
+ * for ALBUM_WAIT_MS. Until then it checks again later and returns null.
+ */
+export const takeAlbum = internalMutation({
+  args: { groupId: v.string() },
+  handler: async (ctx, { groupId }) => {
+    const parts = await ctx.db
+      .query("telegramAlbumParts")
+      .withIndex("by_group", (q) => q.eq("groupId", groupId))
+      .collect();
+    if (parts.length === 0) return null;
+    const quietFor = Date.now() - Math.max(...parts.map((p) => p.addedAt));
+    if (quietFor < ALBUM_WAIT_MS) {
+      await ctx.scheduler.runAfter(ALBUM_WAIT_MS - quietFor, internal.telegram.flushAlbum, { groupId });
+      return null;
+    }
+    for (const p of parts) await ctx.db.delete(p._id);
+    return parts.sort((a, b) => a.messageId - b.messageId);
+  },
+});
+
+/** Reads a finished album as one letter: one document with pages, in one conversation. */
+export const flushAlbum = internalAction({
+  args: { groupId: v.string() },
+  handler: async (ctx, { groupId }) => {
+    const parts = await ctx.runMutation(internal.telegram.takeAlbum, { groupId });
+    if (!parts) return null;
+    const [first, ...rest] = parts;
+    const owner = await ctx.runQuery(internal.owners.get, { ownerId: first.ownerId });
+    if (!owner) return null;
+    const lang = ownerLang(owner);
+    try {
+      await send(first.chatId, reply("reading", lang));
+      await ctx.runMutation(internal.intake.ingestDocument, {
+        ownerId: first.ownerId,
+        storageId: first.storageId,
+        mimeType: first.mimeType,
+        extraPages: rest.map((p) => ({ storageId: p.storageId, mimeType: p.mimeType })),
+        source: "telegram",
+        sourceRef: String(first.messageId),
+        hint: parts.find((p) => p.caption)?.caption, // Telegram puts an album's caption on one part
+      });
+    } catch (e) {
+      await send(first.chatId, reply(failureReply(e), lang));
     }
     return null;
   },
