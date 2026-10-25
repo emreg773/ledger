@@ -16,16 +16,21 @@ import { ownerLang, queuePush, shortDate, type Lang } from "./push";
 //   three levels, each sent once:
 //     1 friendly:  2 days after the case opened
 //     2 direct:    7 days before the deadline, or 7 days after opening if it has none
-//     3 last call: 1 day before the deadline (or later)
-//   A clock skip past several levels sends only the highest. No case is nudged
-//   in its first day: the owner just saw it in the app.
+//     3 last call: 1 day before the deadline, or on the day itself
+//   The level comes from today's date alone, so after a clock skip it is the
+//   level for the new date, and a skip past several levels sends only that one.
+//   No case is nudged in its first day: the owner just saw it in the app. A new
+//   letter joining the case (a CP504 after a CP14) restarts its levels from
+//   that day and the new deadline (resetCaseNudges).
 // - A letter Ledger read that the owner hasn't opened in the app for 24 hours.
 // - A compliance event on the owner's Google Calendar (calendarCompliance.ts):
 //   nothing to approve, so only the deadline levels, 2 at 7 days before and 3
 //   at 1 day before. Listed only within those 7 days; gone once the date passes.
 //
-// Never about suspicious letters. An item drops out as soon as its actions are
-// approved, rejected or done, or its case is resolved. Owners without a linked
+// Never about suspicious letters, and never after a deadline has passed: an
+// overdue case gets no nudge at all. A case is listed only while something
+// waits on the owner (a proposed action or an unopened letter), so it drops out
+// as soon as its actions are approved, rejected or done, or it is resolved. Owners without a linked
 // Telegram chat get nothing (and nothing is marked sent, so linking later works).
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -50,7 +55,7 @@ function levelOf(c: Doc<"cases">, now: number, todayIso: string): Level {
   const daysOpen = Math.floor((now - (c.startedAt ?? c.createdAt)) / DAY_MS);
   if (daysOpen < 1) return 0;
   if (c.deadline) {
-    const left = daysBetween(todayIso, c.deadline);
+    const left = daysBetween(todayIso, c.deadline); // never negative: overdue cases aren't nudged
     if (left <= 1) return 3;
     if (left <= 7) return 2;
   } else if (daysOpen >= 7) {
@@ -79,6 +84,21 @@ async function sentLevelOf(ctx: QueryCtx, ownerId: Id<"owners">, key: string) {
   return 0;
 }
 
+/**
+ * A new letter joined this case: forget the levels already sent, so the
+ * escalation restarts from the new deadline. The caller resets startedAt.
+ */
+export async function resetCaseNudges(ctx: MutationCtx, ownerId: Id<"owners">, caseId: Id<"cases">) {
+  for (const l of [1, 2, 3]) {
+    const key = `nudge|case|${caseId}|${l}`;
+    const rows = await ctx.db
+      .query("sentLog")
+      .withIndex("by_owner_and_key", (q) => q.eq("ownerId", ownerId).eq("key", key))
+      .collect();
+    for (const row of rows) await ctx.db.delete(row._id);
+  }
+}
+
 const shiftIso = (iso: string, days: number) =>
   new Date(Date.parse(`${iso}T12:00:00Z`) + days * DAY_MS).toISOString().slice(0, 10);
 
@@ -86,7 +106,13 @@ const shiftIso = (iso: string, days: number) =>
 async function waitingItems(ctx: QueryCtx, ownerId: Id<"owners">, now: number, todayIso: string) {
   const items = new Map<string, Item>();
   const nudgeable = (c: Doc<"cases"> | null): c is Doc<"cases"> =>
-    Boolean(c && c.ownerId === ownerId && c.status !== "resolved" && c.verification?.verdict !== "suspicious");
+    Boolean(
+      c &&
+        c.ownerId === ownerId &&
+        c.status !== "resolved" &&
+        c.verification?.verdict !== "suspicious" &&
+        !(c.deadline && c.deadline < todayIso), // overdue: too late to nudge
+    );
 
   const cases = await ctx.db
     .query("cases")

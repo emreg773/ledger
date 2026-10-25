@@ -5,6 +5,7 @@ import { logEvent } from "./events";
 import { MIN_CONFIDENCE, type Extraction } from "./extraction";
 import { requireOwner, viewerOwner } from "./access";
 import { nowMs } from "./clock";
+import { resetCaseNudges } from "./nudges";
 
 // Short titles for cases, in English. The agent translates when it talks.
 const CASE_TITLES: Record<string, string> = {
@@ -260,11 +261,14 @@ export const saveExtraction = internalMutation({
 
       const prior = notices.at(-1);
       const escalation = prior?.extraction.docType === "IRS_CP14" && extraction.docType === "IRS_CP504";
+      // Nudges restart from this letter's day and deadline.
       await ctx.db.patch(existing._id, {
         ...caseFields,
         status: "open",
         stage: escalation ? 2 : (existing.stage ?? 1),
+        startedAt: now,
       });
+      await resetCaseNudges(ctx, doc.ownerId, existing._id);
       await logEvent(ctx, {
         ownerId: doc.ownerId,
         caseId: existing._id,
