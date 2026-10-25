@@ -2,6 +2,7 @@ import { components, internal } from "./_generated/api";
 import { internalMutation, type MutationCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import { deleteMockBank } from "./nessie";
+import { clearMessages } from "./gmail";
 
 // Data deletion, shared by admin.resetDemo (dev), owners.resetMyData and
 // owners.deleteMyAccount. The only places that delete events; the audit log is
@@ -56,7 +57,9 @@ export async function deleteOwnerData(ctx: MutationCtx, owner: Doc<"owners">) {
     .withIndex("by_owner", (q) => q.eq("ownerId", ownerId))
     .collect();
   for (const n of notifications) await ctx.db.delete(n._id);
-  // Google Calendar events are a copy; the connection stays, so the next sync refills them.
+  // Sorted emails and Google Calendar events are copies; the connections stay,
+  // so the next sync refills them.
+  await clearMessages(ctx, ownerId);
   const calendarEvents = await ctx.db
     .query("calendarEvents")
     .withIndex("by_owner_and_date", (q) => q.eq("ownerId", ownerId))
@@ -64,7 +67,7 @@ export async function deleteOwnerData(ctx: MutationCtx, owner: Doc<"owners">) {
   for (const e of calendarEvents) await ctx.db.delete(e._id);
 }
 
-/** Everything above, plus the push subscriptions, the Google Calendar connection, the mock bank and the owner row. */
+/** Everything above, plus the push subscriptions, the Gmail and Google Calendar connections, the mock bank and the owner row. */
 export async function deleteOwner(ctx: MutationCtx, owner: Doc<"owners">) {
   await deleteOwnerData(ctx, owner);
   const subscriptions = await ctx.db
@@ -76,9 +79,17 @@ export async function deleteOwner(ctx: MutationCtx, owner: Doc<"owners">) {
     .query("calendarConnections")
     .withIndex("by_owner", (q) => q.eq("ownerId", owner._id))
     .unique();
+  const gmail = await ctx.db
+    .query("gmailConnections")
+    .withIndex("by_owner", (q) => q.eq("ownerId", owner._id))
+    .unique();
+  if (gmail) {
+    await ctx.scheduler.runAfter(0, internal.googleOAuth.revoke, { refreshToken: gmail.refreshToken });
+    await ctx.db.delete(gmail._id);
+  }
   if (calendar) {
     // Revoke Google's grant too, not just our copy of the token.
-    await ctx.scheduler.runAfter(0, internal.googleCalendar.revoke, { refreshToken: calendar.refreshToken });
+    await ctx.scheduler.runAfter(0, internal.googleOAuth.revoke, { refreshToken: calendar.refreshToken });
     await ctx.db.delete(calendar._id);
   }
   await deleteMockBank(ctx, owner._id);

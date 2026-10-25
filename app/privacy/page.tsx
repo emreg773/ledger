@@ -62,6 +62,36 @@ export default function PrivacyPage() {
         , including the Limited Use requirements.
       </p>
 
+      <h2>Gmail (optional)</h2>
+      <p>
+        If you choose &quot;Connect Gmail&quot;, Ledger asks Google for <strong>read-only</strong> access to
+        your email, so it can find letters from government agencies. Every 15 minutes it looks at the last
+        30 days of email, skipping what Gmail already files as spam, trash, promotions, social or forums.
+      </p>
+      <ul>
+        <li>
+          For each email, Ledger keeps only the sender, the subject, Gmail&apos;s short preview and the names
+          of attachments, and sorts it by rules (government, suspicious, business, other). Email bodies are
+          not stored, and sorting doesn&apos;t send anything to Anthropic.
+        </li>
+        <li>
+          When an email from a government domain has a PDF or photo attached, Ledger downloads that
+          attachment and reads it like a letter you uploaded, which means Anthropic&apos;s Claude reads it.
+          You can also ask Ledger to read an attachment from any other email.
+        </li>
+        <li>Ledger never sends, deletes, labels or changes anything in your Gmail.</li>
+      </ul>
+      <p>
+        &quot;Disconnect&quot; in the Email tab, or deleting your account, revokes Ledger&apos;s access and
+        deletes the stored email details. Letters Ledger already read from attachments stay with your other
+        letters until you start over or delete your account. Ledger&apos;s use of information received from
+        Google APIs follows the{" "}
+        <a href="https://developers.google.com/terms/api-services-user-data-policy">
+          Google API Services User Data Policy
+        </a>
+        , including the Limited Use requirements.
+      </p>
+
       <h2>How we use it</h2>
       <p>
         Only to run Ledger for you: to read your documents, explain them, check them against your sandbox
