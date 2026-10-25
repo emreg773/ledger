@@ -8,12 +8,13 @@ import { Loader2 } from "lucide-react";
 import { LANGUAGES } from "@/convex/shared";
 import { Button } from "@/components/ui/button";
 import { Chat } from "@/components/chat";
+import { Landing } from "@/components/landing";
 import { api } from "@/convex/_generated/api";
 import { errorMessage } from "@/lib/errors";
 import { I18nProvider, useI18n } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
-// What the one page shows: sign-in → onboarding → chat
+// What the one page shows: landing (sign-in) → onboarding → chat
 // (docs/ledger-step3-B.md, Sections 3 and 4).
 
 const LANGUAGE_KEY = "ledger.language";
@@ -50,7 +51,7 @@ export function App() {
   if (!isAuthenticated) {
     return (
       <I18nProvider language={language}>
-        <SignIn language={language} onLanguage={setLanguage} />
+        <Landing language={language} onLanguage={setLanguage} />
       </I18nProvider>
     );
   }
@@ -100,53 +101,6 @@ function LanguageButtons({
         </Button>
       ))}
     </div>
-  );
-}
-
-function SignIn({ language, onLanguage }: { language: string; onLanguage: (c: string) => void }) {
-  const { t } = useI18n();
-  const { signIn } = useAuthActions();
-  const [pending, setPending] = useState(false);
-  const [error, setError] = useState(false);
-
-  async function google() {
-    setPending(true);
-    setError(false);
-    try {
-      // Come back to the same URL, so a push link (/?case=…) survives sign-in.
-      await signIn("google", { redirectTo: window.location.pathname + window.location.search });
-    } catch (e) {
-      console.error(e);
-      setError(true);
-      setPending(false);
-    }
-  }
-
-  return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-sm flex-col justify-center gap-8 px-4 py-10">
-      <div className="space-y-3">
-        <h1 className="text-3xl font-semibold tracking-tight">Ledger</h1>
-        <p className="text-base text-muted-foreground">{t("signIn.pitch")}</p>
-      </div>
-      <div className="space-y-3">
-        <Button className="h-12 w-full text-base" onClick={() => void google()} disabled={pending}>
-          {pending ? <Loader2 className="animate-spin" /> : <GoogleMark />}
-          {t("signIn.google")}
-        </Button>
-        {error && <p className="text-sm text-destructive">{t("signIn.error")}</p>}
-      </div>
-      <LanguageButtons language={language} onLanguage={onLanguage} />
-      <p className="text-xs text-muted-foreground">{t("privacy.notice")}</p>
-      <LegalLinks />
-    </main>
-  );
-}
-
-function GoogleMark() {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true" className="size-5">
-      <path fill="#EA4335" d="M12 10.2v3.9h5.5c-.2 1.3-1.6 3.9-5.5 3.9-3.3 0-6-2.7-6-6.1s2.7-6.1 6-6.1c1.9 0 3.1.8 3.8 1.5l2.6-2.5C16.8 3.3 14.6 2.3 12 2.3 6.7 2.3 2.4 6.6 2.4 12s4.3 9.7 9.6 9.7c5.5 0 9.2-3.9 9.2-9.4 0-.6-.1-1.1-.2-1.6H12z" />
-    </svg>
   );
 }
 
